@@ -1,0 +1,95 @@
+name: Release deploy
+
+# When a release (e.g. v1.0.0) is published: build both images on the self-hosted
+# runner, push them to GHCR, then pull and restart the stack in /opt/thotsakan.
+on:
+  release:
+    types: [published]
+
+env:
+  REGISTRY: ghcr.io
+  DEPLOY_DIR: /opt/thotsakan
+
+# Never run two deploys at once; a newer release waits for the running one.
+concurrency:
+  group: release-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build, push and deploy ${{ github.event.release.tag_name }}
+    # Pre-releases (e.g. v1.1.0-rc.1) are not deployed.
+    if: ${{ !github.event.release.prerelease }}
+    runs-on: self-hosted
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image metadata (backend)
+        id: meta-backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository }}-backend
+          # v1.0.0 gives :1.0.0 and :latest.
+          tags: |
+            type=semver,pattern={{version}}
+            type=raw,value=latest
+
+      - name: Image metadata (frontend)
+        id: meta-frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository }}-frontend
+          tags: |
+            type=semver,pattern={{version}}
+            type=raw,value=latest
+
+      - name: Build and push backend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: true
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+      - name: Build and push frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          push: true
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+      # /opt/thotsakan holds the server's docker-compose.yml (images from GHCR)
+      # and its .env; neither is touched here.
+      - name: Pull the new images
+        working-directory: ${{ env.DEPLOY_DIR }}
+        run: docker compose pull
+
+      - name: Bring the stack up
+        working-directory: ${{ env.DEPLOY_DIR }}
+        run: docker compose up -d --remove-orphans --wait --wait-timeout 180
+
+      - name: Show logs on failure
+        if: failure()
+        working-directory: ${{ env.DEPLOY_DIR }}
+        run: docker compose ps && docker compose logs --tail 100
+
+      - name: Remove dangling images
+        if: success()
+        run: docker image prune -f
