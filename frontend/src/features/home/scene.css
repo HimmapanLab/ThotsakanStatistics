@@ -1,0 +1,20 @@
+/* The flat scene shapes, in the four illustration colours (ILLUSTRATION-STYLE.md): no strokes, no gradients, no
+   shadows. Shared by the carousel scenes and the "Coming later" illustration. Ported from the prototype app.css. */
+.sc-blob { fill: var(--il-pale); }
+.sc-floor, .sc-side { fill: var(--il-medium); }
+.sc-body, .sc-paper { fill: var(--il-paper); }
+.sc-shade, .sc-dot, .sc-bar.band { fill: var(--il-primary); }
+.sc-ink { fill: var(--il-ink); }
+.sc-tail { fill: var(--il-medium); transition: fill var(--dur) var(--ease); }
+.sc-tail.is-hit { fill: var(--il-primary); }
+.sc-bar { fill: var(--il-medium); transform-box: fill-box; transform-origin: 50% 100%; transition: transform var(--dur) var(--ease), fill var(--dur) var(--ease); }
+.ct-scene.is-probing .sc-bar.band { fill: var(--il-medium); }
+.ct-scene.is-probing .sc-bar.is-warm { fill: var(--il-primary); transform: scaleY(1.04); }
+.ct-scene .sc-bar.is-hot, .ct-scene.is-probing .sc-bar.is-hot { fill: var(--il-ink); transform: scaleY(1.08); }
+.sc-dot { transform-box: fill-box; transform-origin: center; transition: transform var(--dur) var(--ease); }
+.sc-dot.is-hot { transform: scale(1.45); }
+.ct-slide.k-reg .sc-dot { fill: var(--il-medium); transition: transform var(--dur) var(--ease), fill var(--dur) var(--ease); }
+.ct-slide.k-reg .sc-dot.is-hot { fill: var(--il-primary); transform: scale(1.6); }
+@media (prefers-reduced-motion: reduce) {
+  .ct-scene .pl-far, .ct-scene .pl-mid, .ct-scene .pl-near, .sc-bar, .sc-dot, .sc-tail { transition: none; }
+}

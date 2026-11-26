@@ -1,0 +1,112 @@
+/* The front page: the name, then a peek carousel of the four topics (picked 2026-11-20), then the partner logos.
+   Ported from the prototype app.css. Colours, sizes and motion come from design/tokens.css. */
+.hm-page { flex: 1; min-height: 0; overflow-y: auto; background: var(--surface); color: var(--ink); }
+.hm { display: flex; flex-direction: column; align-items: center; gap: 16px; padding-top: 20px; min-height: 100%; }
+.hm *, .hm *::before, .hm *::after { box-sizing: border-box; }
+.hm h1, .hm h2, .hm p { margin: 0; }
+
+/* buttons and links of this page */
+.hm-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: var(--control-h); padding: 0 16px;
+  border-radius: var(--radius-sm); border: 1.5px solid var(--line-strong); background: var(--field); color: var(--ink);
+  font: inherit; font-size: 0.9375rem; font-weight: 600; cursor: pointer; text-decoration: none;
+  box-shadow: inset 0 0 0 100vmax transparent; transition: box-shadow var(--dur-fast);
+}
+.hm-btn:hover { box-shadow: inset 0 0 0 100vmax var(--hover-overlay); }
+.hm-btn:active { box-shadow: inset 0 0 0 100vmax var(--press-overlay); }
+.hm-btn-primary { background: var(--action); border-color: var(--action); color: var(--action-ink); }
+.hm-btn-quiet { border-color: transparent; background: transparent; color: var(--accent); min-height: var(--hit-min); padding: 0 6px; }
+.hm-btn-quiet:hover { color: var(--accent-hover); }
+.hm .hm-icon { width: 20px; height: 20px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.hm :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.hm-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* the name */
+.hm-brand { display: flex; align-items: center; gap: 20px; max-width: 960px; padding: 0 max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px)); }
+.hm-mask { height: 120px; width: auto; flex: none; }
+.hm-id h1 { font-size: 3.1429rem; line-height: 1.05; font-weight: 700; letter-spacing: -0.015em; }
+.hm-id h1:focus { outline: none; }
+.hm-promise { margin: 6px 0 0; font-size: 1.4286rem; line-height: 1.35; color: var(--ink-muted); }
+.hm-data { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 10px 0 0; font-size: 1rem; color: var(--ink-muted); }
+.hm-data strong { color: var(--ink); overflow-wrap: anywhere; }
+
+/* the carousel: one slide centred, its neighbours cut off at both edges */
+.ct { --sw: min(760px, calc(100vw - 120px)); --sh: clamp(360px, 50vh, 440px); position: relative; width: 100%; display: flex; flex-direction: column; align-items: center; }
+.ct-track { width: 100%; display: flex; gap: 24px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 8px calc((100% - var(--sw)) / 2) 40px; scrollbar-width: none; overscroll-behavior-x: contain; }
+.ct-track::-webkit-scrollbar { display: none; }
+.ct-slide {
+  flex: 0 0 var(--sw); height: var(--sh); scroll-snap-align: center; position: relative; border-radius: 20px; overflow: hidden;
+  background: var(--sl-tint); opacity: 0.5; transform: scale(0.96); cursor: pointer;
+  transition: opacity var(--dur-slow) var(--ease), transform var(--dur-slow) var(--ease), box-shadow var(--dur-slow) var(--ease);
+}
+.ct-slide.is-current { opacity: 1; transform: none; cursor: auto; box-shadow: 0 14px 32px rgba(21, 29, 43, 0.10); }
+.ct-slide:not(.is-current):hover { opacity: 0.85; }
+.ct-slide.k-prob { --sl-tint: #f2f4fc; } .ct-slide.k-stats { --sl-tint: #eff3fc; } .ct-slide.k-hyp { --sl-tint: #f3f3fc; } .ct-slide.k-reg { --sl-tint: #f3f5f9; }
+/* the scene is a 340 x 300 box on the right, centred on the slide height, beside the text, never behind it */
+.ct-scene { position: absolute; right: 36px; top: 50%; width: min(44%, 340px); height: auto; aspect-ratio: 340 / 300; transform: translateY(-50%); overflow: visible; }
+/* depth: the far layer travels furthest, the near layer least, so a change of slide reads as a camera move.
+   On the current slide the layers lean toward the pointer by 12, 6 and 2 px (--lx runs from -1 to 1). */
+.ct-scene .pl-far, .ct-scene .pl-mid, .ct-scene .pl-near { transition: transform var(--dur-scene) var(--ease); }
+.ct-slide .pl-far { transform: translateX(56px); } .ct-slide .pl-mid { transform: translateX(28px); } .ct-slide .pl-near { transform: translateX(12px); }
+.ct-slide.is-before .pl-far { transform: translateX(-56px); } .ct-slide.is-before .pl-mid { transform: translateX(-28px); } .ct-slide.is-before .pl-near { transform: translateX(-12px); }
+.ct-slide.is-current .pl-far { transform: translateX(calc(var(--lx, 0) * 12px)); }
+.ct-slide.is-current .pl-mid { transform: translateX(calc(var(--lx, 0) * 6px)); }
+.ct-slide.is-current .pl-near { transform: translateX(calc(var(--lx, 0) * 2px)); }
+
+.ct-body { position: relative; z-index: 1; width: min(360px, 52%); padding: 40px 0 36px 44px; display: flex; flex-direction: column; height: 100%; }
+.ct-body h2 { font-size: 3rem; line-height: 1.05; font-weight: 700; letter-spacing: -0.015em; }
+.ct-does { margin: 12px 0 0; font-size: 1.2857rem; line-height: 1.4; color: var(--ink-muted); }
+.ct-subs { margin: 8px 0 0; font-size: 0.9286rem; color: var(--ink-muted); }
+.ct-needs { margin-top: 28px; display: flex; flex-direction: column; gap: 4px; font-size: 0.9286rem; color: var(--ink-muted); }
+.ct-fit { display: inline-flex; align-items: center; gap: 6px; font-weight: 500; }
+.ct-fit.yes { color: var(--good); } .ct-fit.no { color: var(--ink-faint); } .ct-fit.none { color: var(--ink-muted); }
+.ct-fit .hm-icon { width: 16px; height: 16px; }
+/* a slide waiting on the left shows its name at its right edge, the edge that peeks into view */
+.ct-peek { position: absolute; z-index: 1; top: 40px; right: 44px; max-width: 46%; text-align: right; font-size: 3rem; line-height: 1.05; font-weight: 700; letter-spacing: -0.015em; color: var(--ink); opacity: 0; transition: opacity var(--dur-slow) var(--ease); pointer-events: none; }
+.ct-slide.is-before .ct-peek { opacity: 1; }
+.ct-slide.is-before .ct-body h2 { opacity: 0; }
+.ct-go { margin-top: 16px; align-self: flex-start; min-height: 44px; padding: 0 20px; font-size: 1.0714rem; }
+.ct-go:hover { color: var(--action-ink); }
+.ct-body > :not(h2) { transition: opacity var(--dur-slow) var(--ease); }
+.ct-slide:not(.is-current) .ct-body > :not(h2) { opacity: 0; }
+.ct-later { margin-top: 16px; align-self: flex-start; display: inline-flex; align-items: center; min-height: 36px; padding: 0 14px; border: 1.5px dashed var(--line-strong); border-radius: var(--radius-pill); color: var(--ink-muted); font-weight: 600; }
+
+.ct-nav {
+  position: absolute; top: calc(8px + var(--sh) / 2 - 22px); z-index: 2; width: 44px; height: 44px; border-radius: 50%; display: grid; place-content: center;
+  background: var(--surface); color: var(--accent); border: 1px solid var(--line); box-shadow: 0 4px 12px rgba(21, 29, 43, 0.12); cursor: pointer; transition: opacity 160ms;
+}
+.ct-nav.prev { left: max(4px, calc(50% - var(--sw) / 2 - 22px)); }
+.ct-nav.next { right: max(4px, calc(50% - var(--sw) / 2 - 22px)); }
+.ct-nav:hover { color: var(--accent-hover); box-shadow: 0 6px 16px rgba(21, 29, 43, 0.16); }
+.ct-nav:disabled { opacity: 0; pointer-events: none; }
+.ct-tabs { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 6px; padding: 0 16px; margin-top: -16px; }
+.ct-tab { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 12px; border: 0; border-radius: var(--radius-pill); background: none; font: inherit; font-size: 1rem; color: var(--ink-muted); cursor: pointer; }
+.ct-tab:hover { background: var(--hover-overlay); color: var(--ink); }
+.ct-tab[aria-current] { color: var(--accent); font-weight: 600; }
+.ct-dot { width: 8px; height: 8px; border-radius: 4px; background: var(--line-strong); transition: width var(--dur-slow) var(--ease), background var(--dur-slow); }
+.ct-tab[aria-current] .ct-dot { width: 22px; background: var(--action); }
+.ct-hint { margin: 2px 0 0; font-size: 0.9286rem; color: var(--ink-muted); text-align: center; padding: 0 16px; }
+
+/* partner logos */
+.hm-logos { display: flex; gap: 28px; align-items: center; flex-wrap: wrap; justify-content: center; padding: 12px 16px 32px; }
+.hm-logos img { height: 40px; width: auto; object-fit: contain; }
+.hm-sibling { display: inline-flex; align-items: center; gap: 10px; color: var(--ink-muted); font-size: 0.9286rem; }
+.hm-sibling img { height: 36px; }
+
+/* phone: the slide is the screen width less 56 px and 500 tall; the scene sits in its own band under the button */
+@media (max-width: 640px) {
+  .ct { --sw: calc(100vw - 56px); --sh: 500px; }
+  .ct-track { gap: 12px; }
+  .ct-body { width: auto; padding: 28px 24px 24px; }
+  .ct-peek { right: 24px; top: 28px; font-size: 2.4rem; }
+  .ct-scene { top: auto; bottom: 14px; right: 50%; width: auto; height: 176px; transform: translateX(50%); }
+  .ct-body h2 { font-size: 2.4rem; }
+  .ct-nav { display: none; }
+  .hm-mask { height: 84px; }
+  .hm-id h1 { font-size: 2.4rem; }
+  .hm-promise { font-size: 1.1429rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ct-track { scroll-behavior: auto; }
+  .ct-slide, .ct-peek, .ct-body > :not(h2), .ct-dot { transition: none; }
+}
