@@ -1,7 +1,5 @@
-import StatusBanner, { EmptyState } from '../../../components/StatusBanner'
 import GraphicalControls from './GraphicalControls'
 import GraphicalObservation from './GraphicalObservation'
-import GraphicalNotebook from './GraphicalNotebook'
 import ResultsGate from '../shared/ResultsGate'
 import type { GraphicalTabState } from './useGraphicalTabState'
 
@@ -11,33 +9,16 @@ export function ControlsSlot({ state }: SlotProps) {
   return <GraphicalControls state={state} />
 }
 
-/** Warnings describe the plot on screen, so they appear with the plot only. */
-function Status({ state, warnings = false }: SlotProps & { warnings?: boolean }) {
-  return (
-    <StatusBanner isComputing={state.isComputing} error={state.error} hasResult={!!state.result} onRetry={state.retry}
-      warnings={warnings ? state.warnings : undefined} />
-  )
-}
-
 export function ObservationSlot({ state }: SlotProps) {
   // Until a variable is picked the results area only says what to do (step gating).
   if (!state.hasData || !state.picked) return <ResultsGate loaded={!!state.sessionId} hasData={state.hasData} />
   return (
-    <div className="analysis-panel flex flex-col min-h-0">
-      <Status state={state} warnings />
-      {(!state.error || state.result) && <GraphicalObservation result={state.result} column={state.column} graphType={state.graphType} precision={state.precision}
-        hasData={state.hasData} loaded={!!state.sessionId} isComputing={state.isComputing} />}
-    </div>
+    <GraphicalObservation result={state.result} column={state.column} graphType={state.graphType} precision={state.precision}
+      isComputing={state.isComputing} error={state.error} onRetry={state.retry} warnings={state.warnings} />
   )
 }
 
-export function NotebookSlot({ state }: SlotProps) {
-  if (!state.hasData) return <EmptyState loaded={!!state.sessionId} hasData={false} compact />
-  return (
-    <div className="analysis-panel">
-      <Status state={state} />
-      {(state.result || (!state.error && !state.isComputing)) && <GraphicalNotebook result={state.result} graphType={state.graphType}
-        precision={state.precision} />}
-    </div>
-  )
+/** @deprecated The notebook panel is gone (its formulas moved to the ƒ buttons). Kept empty only so App.tsx compiles until the integrator drops its notebook slot. */
+export function NotebookSlot(_props: SlotProps) {
+  return null
 }

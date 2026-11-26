@@ -13,6 +13,7 @@ import { LABELS, confidenceReadout, estimatorOptions } from '../../../labels'
 import { BOUNDS, supportedOverlays } from './graphicalState'
 import InputsFrame from '../shared/InputsFrame'
 import { Option, OptionGroup } from '../shared/Options'
+import { GraphFx } from './graphicalFormulas'
 
 /** Bandwidth slider: from a fifth to five times the default h, in about a hundred steps. */
 function bandwidthRange(defaultH: number) {
@@ -38,16 +39,21 @@ export default function GraphicalControls({ state }: { state: GraphicalTabState 
   const show = (
     <>
       <OptionGroup legend="Plot type">
-        <Option kind="radio" name="graph-type" checked={hist} onChange={() => set('graphType', 'Histogram' as GraphType)} label="Histogram" />
+        <Option kind="radio" name="graph-type" checked={hist} onChange={() => set('graphType', 'Histogram' as GraphType)} label="Histogram"
+          fx={<GraphFx topic="hist" ecdf={false} name="Histogram" />} />
         <Option kind="radio" name="graph-type" checked={isEcdf} onChange={() => set('graphType', 'ECDF' as GraphType)}
-          label="ECDF (empirical cumulative distribution function)" />
+          label="ECDF (empirical cumulative distribution function)"
+          fx={<GraphFx topic="ecdf" ecdf name="ECDF" />} />
       </OptionGroup>
       <OptionGroup legend="Overlays">
         <Option checked={shows.kde && cfg.addKde} gated={!shows.kde} why="Histogram only." onGatedTouch={refuse}
-          onChange={(on) => set('addKde', on)} label="KDE (kernel density estimator)" />
-        <Option checked={cfg.addNormal} onChange={(on) => set('addNormal', on)} label="Normal model" />
+          onChange={(on) => set('addKde', on)} label="KDE (kernel density estimator)"
+          fx={<GraphFx topic="kde" ecdf={isEcdf} name="KDE" />} />
+        <Option checked={cfg.addNormal} onChange={(on) => set('addNormal', on)} label="Normal model"
+          fx={<GraphFx topic="normal" ecdf={isEcdf} name="Normal model" />} />
         <Option checked={shows.confBand && cfg.addConfBand} gated={!shows.confBand} why="ECDF only." onGatedTouch={refuse}
-          onChange={(on) => set('addConfBand', on)} label="Confidence band" />
+          onChange={(on) => set('addConfBand', on)} label="Confidence band"
+          fx={<GraphFx topic="band" ecdf={isEcdf} name="Confidence band" />} />
       </OptionGroup>
     </>
   )
