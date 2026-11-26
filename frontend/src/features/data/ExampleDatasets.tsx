@@ -31,51 +31,76 @@ export const EXAMPLE_DATASETS = [
   },
 ] as const
 
-export default function ExampleDatasets() {
+type Example = (typeof EXAMPLE_DATASETS)[number]
+
+/** The title shown for a loaded file: the example's name, or the file name for anything uploaded. */
+export function datasetTitle(filename: string): string {
+  return EXAMPLE_DATASETS.find((dataset) => dataset.file === filename)?.title ?? filename
+}
+
+/** Fetch an example from /datasets and load it exactly like an uploaded file. Resolves true once it is loaded. */
+export function useLoadExample() {
   const { loadFile } = useData()
-  const [open, setOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function pick(dataset: (typeof EXAMPLE_DATASETS)[number]) {
+  async function load(dataset: Example): Promise<boolean> {
     setError(null)
     try {
       const response = await fetch(`${import.meta.env.BASE_URL}datasets/${dataset.file}`)
       if (!response.ok) throw new Error(`status ${response.status}`)
-      loadFile(new File([await response.text()], dataset.file, { type: 'text/csv' }), { exampleKey: dataset.file })
+      const file = new File([await response.text()], dataset.file, { type: 'text/csv' })
+      return (await loadFile(file, { exampleKey: dataset.file })) !== false
     } catch (cause) {
       setError(`Couldn’t load ${dataset.title} (${cause instanceof Error ? cause.message : String(cause)}).`)
+      return false
     }
   }
+  return { load, error }
+}
 
+/** The three example datasets as buttons. `current` is the file name of the loaded data, if any. */
+export function ExampleList({ current, onLoaded, children }: {
+  current?: string
+  /** Called after an example has loaded, for the confirming buzz and the focus. */
+  onLoaded?: (dataset: Example) => void
+  /** More choices at the end of the list, such as "Clear data". */
+  children?: React.ReactNode
+}) {
+  const { load, error } = useLoadExample()
   return (
-    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-panel)]">
-      <button type="button" aria-expanded={open} onClick={() => setOpen((value) => !value)}
-        className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-sm font-semibold text-[var(--color-text)]">
+    <>
+      <ul className="data-examples">
+        {EXAMPLE_DATASETS.map((dataset) => (
+          <li key={dataset.file}>
+            <button type="button" className="data-example" aria-pressed={current === dataset.file}
+              onClick={async () => { if (await load(dataset)) onLoaded?.(dataset) }}>
+              <span className="data-example-name">
+                {dataset.title}
+                {dataset.isDefault && <span className="data-example-default">Default</span>}
+              </span>
+              <span className="data-example-meta">{dataset.rows.toLocaleString('en-US')} rows × {dataset.columns} columns</span>
+              <span className="data-example-desc">{dataset.description}</span>
+            </button>
+          </li>
+        ))}
+        {children}
+      </ul>
+      {error && <p role="alert" className="data-error">{error}</p>}
+    </>
+  )
+}
+
+/** The older collapsible card; the Data drawer uses ExampleList directly. */
+export default function ExampleDatasets() {
+  const { state } = useData()
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="data-examples-card">
+      <button type="button" className="data-examples-toggle" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
         <span>Example datasets</span>
-        <span aria-hidden="true" className="text-[var(--color-text-muted)]">{open ? '▲' : '▼'}</span>
+        <span aria-hidden="true">{open ? '▲' : '▼'}</span>
       </button>
-      {open && (
-        <ul className="flex flex-col gap-2 border-t border-[var(--color-border)] p-3">
-          {EXAMPLE_DATASETS.map((dataset) => (
-            <li key={dataset.file}>
-              <button type="button" onClick={() => pick(dataset)}
-                className="w-full rounded-lg border border-[var(--color-border-md)] px-4 py-3 text-left hover:border-[var(--color-accent)]">
-                <span className="flex flex-wrap items-center gap-2 text-sm font-semibold text-[var(--color-text)]">
-                  {dataset.title}
-                  {dataset.isDefault && (
-                    <span className="rounded border border-[var(--q-data)] bg-[var(--q-data-fill)] px-1.5 py-0.5 text-xs text-[var(--accent)]">Default</span>
-                  )}
-                  <span className="font-mono text-xs font-normal text-[var(--color-text-muted)]">
-                    {dataset.rows.toLocaleString('en-US')} rows × {dataset.columns} columns
-                  </span>
-                </span>
-                <span className="mt-1 block text-xs text-[var(--color-text-muted)]">{dataset.description}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      {error && <p role="alert" className="px-4 pb-3 text-xs text-[var(--error)]">{error}</p>}
+      {open && <ExampleList current={state?.filename} />}
     </div>
   )
 }
