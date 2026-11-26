@@ -34,9 +34,11 @@
 
 /* ── Drawer ───────────────────────────────────────────── */
 .data-drawer {
-  flex: 0 1 var(--drawer-w); width: var(--drawer-w); max-width: 100%; min-width: 0; box-sizing: border-box;
+  /* Fills the bench's Data column, whose width the reader sets with the splitter (LabBench); that column draws the
+     right edge, so the drawer draws none of its own. */
+  flex: 1 1 auto; width: 100%; min-width: 0; box-sizing: border-box;
   display: flex; flex-direction: column; overflow: hidden;
-  background: var(--surface); border-right: 1px solid var(--line-strong);
+  background: var(--surface);
   /* unrolls from the rail edge in place, over 240 ms with the shared easing */
   animation: data-drawer-in var(--dur) var(--ease);
 }
