@@ -7,9 +7,9 @@ import { TABLE_TINTS } from '../plot/theme'
  */
 const TABLE_GROUP_TINTS: Readonly<Record<string, { row: string; text: string; label: string }>> = TABLE_TINTS
 
-/** Small labels beside a statistic's name, e.g. Unbiased. One color per meaning, in every table. (The Robust label
- *  was retired by Irving on 2026-11-26; the backend still sends the flag, the UI does not show it.) */
+/** Small labels beside a statistic's name, e.g. Robust. One color per meaning, in every table. */
 export const TABLE_TAG_STYLES = {
+  Robust: 'border-[var(--q-data)] bg-[var(--q-data-fill)] text-[var(--accent)]',
   Unbiased: 'border-[var(--q-mean)] bg-[var(--inset)] text-[var(--q-mean)]',
   Consistent: 'border-[var(--q-kde)] bg-[var(--inset)] text-[var(--q-kde)]',
 } as const

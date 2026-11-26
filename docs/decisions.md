@@ -56,12 +56,6 @@ browser. Nothing is under 12 px at any size, plots included.
 *Replaces:* "Text size" (small text 14 px, fixed).
 *Why:* the denser layout needs a smaller base; projectors need a bigger one.
 
-### No "Robust" label — 2026-11-26
-The Descriptive table and its CSV export no longer show a "Robust" tag or column. The backend still computes the
-flag (`backend/core` unchanged); the UI does not display it.
-*Why:* Irving retired the label (relayed by the design lead on 2026-11-26).
-*Where:* `features/estimation/descriptive/DescriptiveObservation.tsx`.
-
 ### Display precision — 2026-11-26
 Every number on screen (tables, legends, plot hovers, PDF export) follows one rule. A value shows *p*
 decimals (*p* from 2 to 6, default 4, set in Preferences and saved per browser). A value that is not zero but

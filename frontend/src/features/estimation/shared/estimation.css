@@ -105,6 +105,7 @@
 .est-table .sub { color: var(--ink-muted); font-weight: 400; }
 
 /* Estimator tags: one colour per meaning, the same in every table (as TABLE_TAG_STYLES did). */
+.est-tag-robust { border-color: var(--q-data); background: var(--q-data-fill); color: var(--il-ink); }
 .est-tag-unbiased { border-color: var(--q-mean); color: var(--q-mean); }
 .est-tag-consistent { border-color: var(--q-kde); color: var(--q-kde); }
 .est-notation { margin: 8px 0 0; padding-left: 18px; font-size: 0.9286rem; color: var(--ink-muted); }

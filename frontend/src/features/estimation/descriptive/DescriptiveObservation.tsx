@@ -60,6 +60,7 @@ function StatsTable({ rows, showConsistencyCorr, precision, n }: {
         measure: (
           <>
             {row.measure}
+            {row.robust && <span className="est-tag est-tag-robust" title="Robust statistic">Robust</span>}
             <Tags tags={estimatorTags(row, false)} />
           </>
         ),
@@ -224,8 +225,8 @@ export default function DescriptiveObservation({
   const exportCSV = useCallback(() => {
     if (!result || !config) throw new Error('No applied descriptive result is available.')
     downloadCSV([
-      ['category', 'statistic', 'value', 'normal_corrected', 'normal_corrected_properties', 'warning'],
-      ...visibleRows.map((row) => [row.category, row.measure, row.value, row.consistencyCorr, estimatorTags(row, true).join(' '), row.warning ?? '']),
+      ['category', 'statistic', 'value', 'normal_corrected', 'normal_corrected_properties', 'robust', 'warning'],
+      ...visibleRows.map((row) => [row.category, row.measure, row.value, row.consistencyCorr, estimatorTags(row, true).join(' '), !!row.robust, row.warning ?? '']),
     ], exportFilename(baseName, 'csv', 'descriptive-statistics'))
   }, [result, config, visibleRows, baseName])
   const exportPNG = useCallback(() => downloadChartsPNG(registry.charts,
