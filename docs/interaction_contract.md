@@ -2,7 +2,7 @@
 
 Rules every analysis tab (Common Distributions, Descriptive, Inference, Graphical, Hypothesis, and later Regression) follows, so the app behaves the same everywhere. Written after the professor's review of the Estimation tabs. Each rule fixes a bug or inconsistency that was observed in the code. The decisions behind the rules, with dates, are in [`decisions.md`](decisions.md).
 
-**Scope:** the app is an *analysis tool* in the style of jamovi / JASP — it reports numbers and draws plots; the user decides. A guided-teaching layer is later work (see [`design.md`](design.md)).
+**Scope:** the app is an *analysis tool* in the style of jamovi / JASP — it reports numbers and draws plots; the user decides. Inputs come in ordered steps (rule 18), but there are no lessons or verdicts. A guided-teaching layer is later work (see [`design.md`](design.md)).
 
 ## 1. Options
 
@@ -31,10 +31,11 @@ Rules every analysis tab (Common Distributions, Descriptive, Inference, Graphica
 
 ## 5. Layout and states
 
-14. Left panel = inputs only (what to show first, then one Settings section); center = tables at the top, plots below, export; right = formulas.
-15. **Right panel:** the formulas, definitions and procedures of what is on screen — only what was chosen, copied from `backend/core/` — then a closing "Values" section (estimates, cut-offs, constants). No lessons, no reflection prompts, no teaching flow.
+14. Data rail (opens the Data drawer) · inputs panel (what to show first, then one Settings section) · results (tables at the top, plots below, export; at most 960 px wide). There is no right panel.
+15. **Formulas in ƒ popovers:** each option and result row has a ƒ button that opens the formula, definition or procedure of exactly that choice, copied from `backend/core/`. No lessons, no reflection prompts, no teaching flow.
 16. Empty, loading, error and warning states use the shared status components, not per-tab emoji or ad-hoc boxes.
-17. Colors, spacing and text sizes come from shared tokens (`style.css` variables and `plot/theme.ts`) — no per-chart hex literals. Small text is 14 px; nothing, plots included, is under 12 px. Within a tab a color has one meaning (see `plot/theme.ts`).
+17. Colors, spacing and text sizes come from shared tokens (`design/tokens.css` and `plot/theme.ts`) — no per-chart hex literals. The root text is 14 px (Standard), 16 px (Large) or 18 px (Projector); nothing, plots included, is under 12 px. Within a tab a color has one meaning (see `plot/theme.ts`). Numbers follow one display-precision rule (`utils/formatNumber.ts`).
+18. **Step gating.** Step 1 is the data and the variable; each later step appears once the one before is filled and stays open. A locked step shows only its name. Results appear as soon as the steps they need are filled.
 
 ## Shared building blocks (new files; do not change existing component interfaces)
 

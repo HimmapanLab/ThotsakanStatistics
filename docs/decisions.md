@@ -12,10 +12,66 @@ Commit hashes refer to the branch `irving-reviewing-experiment` (forked from `de
 
 ---
 
+## UI rebuild — 2026-11-26
+
+> **Status: agreed with Irving, waiting for his confirmation on the pull request that adds this section.**
+> The entries below were drafted from the approved design (the "Formula Lab" artifact and the Figma file
+> `A5i7umnJq0Orv1rBhIbEts`). They take effect when Irving approves that pull request. Each one names the
+> earlier entry it replaces; that entry stays below, marked *Replaced*.
+
+Kept unchanged by the rebuild: tables first, then plots; no Run button and no verdict; formulas copied from
+`backend/core/`; one meaning per colour.
+
+### Light theme first — 2026-11-26
+The app ships one light theme. Dark comes later as a separate entry; Preferences shows it disabled.
+*Replaces:* the dark-only look (`style.css`).
+*Why:* the app is used on projectors and in daylight classrooms; the design system was drawn light first.
+
+### Layout: Data rail, inputs, results; formulas in ƒ popovers — 2026-11-26
+A narrow Data rail on the left opens the Data drawer. Next to it, the inputs panel (320 px); then the results
+(tables first, plots below, at most 960 px wide). There is no right panel. Each option and each result row
+has a ƒ button that opens the formula of exactly that choice, typeset with KaTeX and copied from
+`backend/core/`. The "Values" are the numbers already in the results table.
+*Replaces:* "Left = inputs, center = results, right = formulas" and "Right panel: formulas first, values last".
+*Why:* three panels left the results cramped on a laptop and a projector; the formula belongs next to the
+number it explains.
+
+### The data in use is always named — 2026-11-26
+The first input step of every analysis page names the dataset, shows a "Filtered n of N" chip when a filter is
+on, and has a Change button. The rail shows the dataset name and its row count.
+*Replaces:* "No 'file · variable · n' line" (the "Sample" sections in the right panel stay removed).
+*Why:* with the Data tab moved into a drawer, the page must say which data the numbers come from.
+
+### Inputs appear step by step; still an analysis tool — 2026-11-26
+Inputs come in numbered steps. Step 1 is the variable; each later step appears once the one before is
+filled, and stays open. A locked step shows only its name. This orders the inputs; it adds no lessons,
+prompts, verdicts or teaching text, and no number is hidden behind a click once its inputs are filled.
+*Replaces:* part of "An analysis tool, not a guided lab" — the app stays an analysis tool, but the input order
+is now guided.
+*Why:* new students did not know where to start on a panel full of options.
+
+### Text size: 14 px base with Large and Projector — 2026-11-26
+The root text size is 14 px (Standard). Preferences offers Large (16 px) and Projector (18 px), saved per
+browser. Nothing is under 12 px at any size, plots included.
+*Replaces:* "Text size" (small text 14 px, fixed).
+*Why:* the denser layout needs a smaller base; projectors need a bigger one.
+
+### Display precision — 2026-11-26
+Every number on screen (tables, legends, plot hovers, PDF export) follows one rule. A value shows *p*
+decimals (*p* from 2 to 6, default 4, set in Preferences and saved per browser). A value that is not zero but
+would round to zero shows in scientific notation with *p* significant digits (1.234e−5), so a tiny p-value is
+never shown as 0.0000. Counts (n, B, rows, whole-number degrees of freedom) show without decimals. A missing
+value is "—". CSV export keeps the full value.
+*Why:* the tabs each formatted numbers their own way, so the same p-value read 0.0000 in one place and
+1.2e−5 in another.
+*Where:* `frontend/src/utils/formatNumber.ts`.
+
+---
+
 ## Product
 
 ### An analysis tool, not a guided lab — 2026-10-19
-The app behaves like statistical software (jamovi / JASP style): it reports numbers and draws plots, and the
+*Replaced in part on 2026-11-26 (Inputs appear step by step).* The app behaves like statistical software (jamovi / JASP style): it reports numbers and draws plots, and the
 user decides. No lessons, reflection prompts, lab notebook or teaching flow in the analysis tabs; the
 guided-teaching layer is separate, later work.
 *Where:* [`interaction_contract.md`](interaction_contract.md); `2e4638c`, `af89387`.
@@ -76,7 +132,7 @@ reject H₀", and no number is hidden behind a click.
 *Where:* `2e4638c`, `04de850`, `5568d59`, `b685a5b` (Inference Reset, 2026-10-27).
 
 ### No "file · variable · n" line and no "Sample" sections — 2026-10-20
-The line above the results and the right-panel "Sample" sections are removed from every tab.
+*Replaced in part on 2026-11-26 (The data in use is always named).* The line above the results and the right-panel "Sample" sections are removed from every tab.
 *Where:* `af89387`.
 
 ### Panels usable without data — 2026-10-19
@@ -89,14 +145,14 @@ missing.
 ## Layout
 
 ### Left = inputs, center = results, right = formulas — 2026-10-19
-The left panel holds inputs only, the center the tables and plots, the right panel the technical reference.
+*Replaced on 2026-11-26 (Layout: Data rail, inputs, results).* The left panel holds inputs only, the center the tables and plots, the right panel the technical reference.
 *Where:* [`interaction_contract.md`](interaction_contract.md), rule 14.
 
 ### Tables at the top of the center panel, plots below — 2026-10-23
 *Where:* `c86cfc1`.
 
 ### Right panel: formulas first, values last — 2026-10-23
-The right panel opens with the formulas, definitions and procedures of what is on screen, typeset with KaTeX,
+*Replaced on 2026-11-26 (formulas in ƒ popovers).* The right panel opens with the formulas, definitions and procedures of what is on screen, typeset with KaTeX,
 and closes with a "Values" section (estimates, cut-offs, constants). Only the formulas of the statistics or
 intervals actually chosen are shown.
 *Where:* `285d571`, `441136d`, `2e9945a`.
@@ -111,7 +167,7 @@ below (Inference: α, σ estimator, bootstrap samples). A setting that belongs t
 *Where:* `19b1130`.
 
 ### Text size — 2026-10-23
-Small text is 14 px across the app; no text under 12 px anywhere, plots included.
+*Replaced on 2026-11-26 (Text size: 14 px base).* Small text is 14 px across the app; no text under 12 px anywhere, plots included.
 *Where:* `20584ab`, `86ee55d`.
 
 ### Plain tables share one style — 2026-10-19
