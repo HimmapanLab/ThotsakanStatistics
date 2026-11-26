@@ -97,9 +97,10 @@ export function useHypothesisTabState() {
   const prepare = useCallback((draft: HypothesisDraft) => withGroupDefaults(draft, data.categoricalCols, getUniqueValues),
     [data.categoricalCols, getUniqueValues]);
   const [draft, updateDraft] = useState(() => {
-    const initial = initialDraft(data.numericCols[0]);
+    // Step gating: the variable starts empty. Only one the user picked before a refresh counts as picked.
+    const initial = initialDraft();
     const restored = { ...initial, ...loadPageState<HypothesisDraft>('hypothesis', data.filename) };
-    return prepare(data.numericCols.includes(restored.column) ? restored : { ...restored, column: initial.column });
+    return prepare(data.numericCols.includes(restored.column) ? restored : { ...restored, column: '' });
   });
   useSavePageState('hypothesis', data.status === 'ready' ? data.filename : '', draft);
   const draftRef = useRef(draft);
@@ -108,6 +109,7 @@ export function useHypothesisTabState() {
   const [isComputing, setIsComputing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const requestId = useRef(0);
+  const controller = useRef<AbortController | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastAttempt = useRef<{ config: HypothesisConfig; context: string } | null>(null);
   const context = JSON.stringify([data.sessionId, data.status, data.filters, data.numericCols, data.categoricalCols]);
@@ -117,6 +119,7 @@ export function useHypothesisTabState() {
 
   const invalidateRequest = useCallback(() => {
     requestId.current++;
+    controller.current?.abort();
     if (timer.current) clearTimeout(timer.current);
     timer.current = null;
     setIsComputing(false);
@@ -127,6 +130,9 @@ export function useHypothesisTabState() {
     if (timer.current) clearTimeout(timer.current);
     timer.current = null;
     const id = ++requestId.current;
+    controller.current?.abort();
+    const abort = new AbortController();
+    controller.current = abort;
     const runContext = context;
     lastAttempt.current = { config, context: runContext };
     setError(null);
@@ -139,7 +145,7 @@ export function useHypothesisTabState() {
         group1: config.group1, group2: config.group2,
         anova_column: config.anovaColumn, anova_levels: config.anovaLevels,
         filters: Object.keys(data.filters).length ? data.filters : null,
-      });
+      }, abort.signal);
       if (id !== requestId.current || runContext !== currentContext.current) return;
       setResult(response);
       setApplied({ config, filename: data.filename, filteredN: filteredRows.length });
@@ -167,9 +173,9 @@ export function useHypothesisTabState() {
     let next = draftRef.current;
     if (previousSession.current !== data.sessionId) {
       previousSession.current = data.sessionId;
-      next = initialDraft(data.numericCols[0]);
+      next = initialDraft();
     } else if (!data.numericCols.includes(next.column)) {
-      next = { ...next, column: data.numericCols[0] ?? '' };
+      next = { ...next, column: '' };
     }
     next = prepare(next);
     draftRef.current = next;
@@ -177,6 +183,7 @@ export function useHypothesisTabState() {
     runIfValid(next);
     return () => {
       requestId.current++;
+      controller.current?.abort();
       if (timer.current) clearTimeout(timer.current);
     };
   }, [context, data.sessionId, data.numericCols, invalidateRequest, prepare, runIfValid]);
@@ -202,7 +209,8 @@ export function useHypothesisTabState() {
   const handleReset = () => {
     invalidateRequest();
     lastAttempt.current = null;
-    const next = prepare(initialDraft(data.numericCols[0]));
+    // Reset puts the options back to their defaults and keeps the variable the user picked.
+    const next = prepare(initialDraft(data.numericCols.includes(draftRef.current.column) ? draftRef.current.column : ''));
     draftRef.current = next;
     updateDraft(next);
     setResult(null); setApplied(null); setError(null);
@@ -228,6 +236,8 @@ export function useHypothesisTabState() {
     handleRetry, handleReset,
     validationErrors: validation.errors,
     hasData: data.status === 'ready' && !!data.dataset,
+    /** A variable is picked: the steps after "Data" are open and the results can be calculated. */
+    picked: data.numericCols.includes(draft.column),
     numericCols: data.numericCols, categoricalCols: data.categoricalCols,
     precision: data.displayPrecision, sessionId: data.sessionId, filename: data.filename,
     filteredN: filteredRows.length, getUniqueValues,

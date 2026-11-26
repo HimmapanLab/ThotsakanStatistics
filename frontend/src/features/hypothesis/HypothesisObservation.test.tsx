@@ -14,8 +14,8 @@ vi.mock('react-plotly.js', async () => {
     return <div ref={ref} data-testid="plot" />
   } }
 })
-vi.mock('../../components/ResultToolbar', () => ({ default: (props: { exports?: unknown; ready: boolean }) => (
-  <button type="button" data-handlers={String(!!props.exports)} disabled={!props.ready}>Export</button>
+vi.mock('../../components/ExportMenu', () => ({ default: (props: { handlers?: unknown; ready?: boolean }) => (
+  <button type="button" data-handlers={String(!!props.handlers)} disabled={!props.ready}>Export</button>
 ) }))
 import HypothesisObservation from './HypothesisObservation'
 
@@ -45,6 +45,32 @@ function render(isDirty = false, isComputing = false) {
 }
 
 describe('hypothesis result panel', () => {
+  it('shows the tables first, then the plot, with every number from the response at the display precision', () => {
+    render()
+    const headings = [...container.querySelectorAll('h3')].map((heading) => heading.textContent)
+    expect(headings).toEqual(['Hypotheses', 'Test result', 'Null distribution · t(20)'])
+    expect(container.querySelector('table')!.compareDocumentPosition(container.querySelector('[data-testid="plot"]')!)
+      & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const cells = [...container.querySelectorAll('tbody td')].map((cell) => cell.textContent)
+    expect(cells).toEqual(['2.000', '20', '0.040', '0.05', '±1.960'])
+    expect(container.textContent).toContain('mu = 0')
+    expect(container.textContent).toContain('mu != 0')
+  })
+
+  it('names the test under the page title and asks for a variable until one is picked', () => {
+    render()
+    expect(container.querySelector('h2')?.textContent).toBe('One Sample t-test')
+    act(() => root.render(<HypothesisObservation result={null} hasData loaded picked={false} precision={3} isDirty={false} isComputing={false} />))
+    expect(container.textContent).toContain('Pick a variable to start')
+  })
+
+  it('keeps the last result, dimmed, with an Updating line while the next one loads', () => {
+    render(false, true)
+    expect(container.querySelector('.hp-out')?.className).toContain('is-updating')
+    expect(container.textContent).toContain('Updating…')
+    expect(container.querySelector('table')).not.toBeNull()
+  })
+
   it('offers export as soon as the shown result is current, and not while it is updating', () => {
     render()
     expect(container.querySelector('button[data-handlers]')?.getAttribute('data-handlers')).toBe('true')

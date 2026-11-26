@@ -4,8 +4,10 @@ import Plotly from 'plotly.js-basic-dist-min'
 import type { DistResult, DistParams } from '../../../hooks/useDistribution'
 import { DISTRIBUTIONS } from '../../../hooks/useDistribution'
 import { queryIncludes, queryLabel, type DistQuery } from '../../../math/probabilityQuery'
-import ResultToolbar from '../../../components/ResultToolbar'
-import ResultSection from '../../../components/ResultSection'
+import ExportMenu from '../../../components/ExportMenu'
+import { ResultsHead } from '../../../components/lab'
+import { Block, DataTable, Legend, Out, PlotFrame } from '../../hypothesis/ui/blocks'
+import { QueryFx, DistFx } from './ProbFormula'
 import StatusBanner from '../../../components/StatusBanner'
 import { PLOT_AXIS, PLOT_COLORS, PLOT_CONFIG, baseLayout } from '../../../plot/theme'
 import { downloadChartsPNG } from '../../../utils/exportPNG'
@@ -32,9 +34,8 @@ interface CommonDistObservationProps {
 
 const LAYOUT_BASE = baseLayout({
   autosize: true,
-  margin: { l: 52, r: 20, t: 20, b: 60 },
-  showlegend: true,
-  legend: { font: { color: PLOT_COLORS.axisText, size: 12 }, bgcolor: 'transparent', orientation: 'h' as const, y: -0.18 },
+  margin: { l: 52, r: 20, t: 12, b: 48 },
+  showlegend: false,
   bargap: 0.15,
 })
 const AXIS = PLOT_AXIS
@@ -213,40 +214,59 @@ export default function CommonDistObservation({ distParams, appliedParams, resul
 
   if (!result) return status
 
+  const discrete = dist?.type === 'discrete'
+  const paramText = Object.entries(paramValues).map(([key, value]) => `${key} = ${value}`).join(', ')
+  const keyResult = `${probabilityLabel} = ${formatNumber(result.queryResult, precision)}`
+  const moments = [
+    { key: 'mean', label: 'Mean E[X]', value: statCards[0].value, part: 'mean' as const },
+    { key: 'variance', label: 'Variance Var(X)', value: statCards[1].value, part: 'variance' as const },
+  ]
+
   return (
-    <div className="flex flex-col gap-4">
+    <Out updating={isLoading}>
+      <ResultsHead title={`Common Distributions · ${distName}`} sub={`${distName} (${paramText})`}>
+        <ExportMenu handlers={exportHandlers} ready={exportReady}
+          disabledReason={result.provisional || isLoading ? 'Waiting for the authoritative backend result.' : 'Chart is still loading.'} />
+      </ResultsHead>
       {status}
-      <ResultToolbar title={`${distName} distribution`} exports={exportHandlers} ready={exportReady}
-        disabledReason={result.provisional || isLoading ? 'Waiting for the authoritative backend result.' : 'Chart is still loading.'} />
 
-      <div className={`grid grid-cols-3 gap-3 transition-opacity ${result.provisional ? 'opacity-80' : ''}`}>
-        {statCards.map((card) => (
-          <div key={card.label} className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-input)] p-3">
-            <p className="mb-1 text-xs text-[var(--color-text-muted)]">
-              {card.label}
-              {card.highlight && result.provisional && (
-                <span className="ml-1 text-[var(--color-accent)]" title="Provisional — awaiting backend result">≈</span>
-              )}
-            </p>
-            <p className={`text-2xl font-bold tabular-nums ${card.highlight ? 'text-[var(--color-accent)]' : 'text-[var(--color-text)]'}`}>
-              {card.value}
-            </p>
-          </div>
-        ))}
-      </div>
+      <Block title="Result" fx={<QueryFx />}>
+        <div className="hp-keyres">
+          <span className="hp-keyres-label">Probability{result.provisional && <span title="Provisional: awaiting the backend result"> (preview ≈)</span>}</span>
+          <span className="hp-keyres-num" aria-live="polite">{keyResult}</span>
+        </div>
+      </Block>
 
-      <ResultSection title={dist?.type === 'discrete' ? 'Probability mass function' : 'Probability density function'}>
-        <Plot
-          data={traces}
-          layout={layout as object}
-          style={{ width: '100%', height: 380 }}
-          config={PLOT_CONFIG}
-          useResizeHandler
-          onInitialized={registry.register('distribution', `${distName} distribution`)}
-          onUpdate={registry.register('distribution', `${distName} distribution`)}
-          onPurge={registry.unregister('distribution')}
-        />
-      </ResultSection>
-    </div>
+      <Block title="Mean and variance">
+        <DataTable caption={`Of the ${distName} distribution`} visibleCaption
+          columns={[{ key: 'quantity', label: 'Quantity' }, { key: 'value', label: 'Value', num: true }]}
+          rows={moments.map((row) => ({ cells: { quantity: row.label, value: row.value }, fx: <DistFx name={distName} part={row.part} /> }))} />
+      </Block>
+
+      <Block title={discrete ? 'Probability mass' : 'Density'}>
+        <PlotFrame label={`${discrete ? 'Probability mass function' : 'Probability density function'} of the ${distName} distribution. ${keyResult}.`}>
+          {(height) => (
+            <Plot
+              data={traces}
+              layout={{ ...layout, height } as object}
+              style={{ width: '100%', height: '100%' }}
+              config={PLOT_CONFIG}
+              useResizeHandler
+              onInitialized={registry.register('distribution', `${distName} distribution`)}
+              onUpdate={registry.register('distribution', `${distName} distribution`)}
+              onPurge={registry.unregister('distribution')}
+            />
+          )}
+        </PlotFrame>
+        <Legend items={discrete ? [
+          { label: `In the query: ${probabilityLabel}`, swatch: { width: 16, height: 12, background: PLOT_COLORS.highlight } },
+          { label: 'Not in the query', swatch: { width: 16, height: 12, background: PLOT_COLORS.inactive } },
+        ] : [
+          { label: 'Density', swatch: { width: 20, borderTop: `2.5px solid ${PLOT_COLORS.highlight}` } },
+          { label: probabilityLabel, swatch: { width: 16, height: 12, background: PLOT_COLORS.highlightFill } },
+          { label: `Chosen bound${query.kind === 'interval' ? 's' : ''}`, swatch: { width: 20, borderTop: `2px dashed ${PLOT_COLORS.reference}` } },
+        ]} />
+      </Block>
+    </Out>
   )
 }
