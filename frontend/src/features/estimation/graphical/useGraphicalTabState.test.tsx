@@ -49,9 +49,6 @@ const lastParams = () => vi.mocked(graphicalApi.computeGraph).mock.lastCall![1]
 function panel(name: 'Observation') {
   return container.querySelector(`section[aria-label="${name}"]`)!
 }
-function panels() {
-  return Array.from(container.querySelectorAll('section[aria-label]'))
-}
 
 beforeEach(async () => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
