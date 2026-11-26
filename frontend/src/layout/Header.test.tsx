@@ -152,6 +152,24 @@ describe('Statistics menu', () => {
     expect(menu()).toBeNull()
   })
 
+  it('closes on Tab and moves on to the control after the button, not to the start of the page', () => {
+    render('probability')
+    const after = container.querySelector<HTMLElement>('.tb-topics > a[href="#hypothesis"]')!
+    key(trigger(), 'ArrowDown')
+    expect(menu()).not.toBeNull()
+    key(document.activeElement!, 'Tab')
+    expect(menu()).toBeNull()
+    expect(document.activeElement).toBe(after)
+  })
+
+  it('goes back to the button on Shift+Tab', () => {
+    render('probability')
+    key(trigger(), 'ArrowDown')
+    act(() => { document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true })) })
+    expect(menu()).toBeNull()
+    expect(document.activeElement).toBe(trigger())
+  })
+
   it.each(['Enter', ' ', 'ArrowDown'])('opens on %j and moves focus to the current page, or the first item', (k) => {
     render('statistics-descriptive')
     act(() => trigger().focus())

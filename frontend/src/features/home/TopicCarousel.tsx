@@ -46,6 +46,9 @@ export default function TopicCarousel({ onNavigate, fitFor, histogram }: TopicCa
   const [announcement, setAnnouncement] = useState('')
   const current = useRef(index)
   const track = useRef<HTMLDivElement>(null)
+  // A button that has just taken the carousel to its end is disabled; focus moves to the other one, not to the page.
+  const prevButton = useRef<HTMLButtonElement>(null)
+  const nextButton = useRef<HTMLButtonElement>(null)
 
   /** Make slide i the current one. Remembers it, announces it and, after a touch, ticks. */
   const mark = useCallback((i: number) => {
@@ -167,8 +170,8 @@ export default function TopicCarousel({ onNavigate, fitFor, histogram }: TopicCa
           )
         })}
       </div>
-      <button type="button" className="ct-nav prev" aria-label="Previous topic" disabled={index === 0} onClick={() => go(index - 1)}><ChevL /></button>
-      <button type="button" className="ct-nav next" aria-label="Next topic" disabled={index === count - 1} onClick={() => go(index + 1)}><ChevR /></button>
+      <button ref={prevButton} type="button" className="ct-nav prev" aria-label="Previous topic" disabled={index === 0} onClick={() => { go(index - 1); if (index - 1 === 0) nextButton.current?.focus() }}><ChevL /></button>
+      <button ref={nextButton} type="button" className="ct-nav next" aria-label="Next topic" disabled={index === count - 1} onClick={() => { go(index + 1); if (index + 1 === count - 1) prevButton.current?.focus() }}><ChevR /></button>
       <div className="ct-tabs" role="group" aria-label="Choose a topic">
         {TOPIC_SLIDES.map((t, i) => (
           <button key={t.id} type="button" className="ct-tab" aria-current={i === index ? 'true' : undefined} onClick={() => go(i)}>

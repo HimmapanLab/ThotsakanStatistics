@@ -67,6 +67,20 @@ describe('TopicCarousel', () => {
     expect(button('Previous topic').disabled).toBe(true)
   })
 
+  it('keeps the focus on a button when the one pressed disables itself at the end of the carousel', () => {
+    render()
+    act(() => tab('Hypothesis Testing').click())
+    act(() => { button('Next topic').focus() })
+    act(() => button('Next topic').click())
+    expect(button('Next topic').disabled).toBe(true)
+    expect(document.activeElement).toBe(button('Previous topic'))
+    act(() => tab('Statistics').click())
+    act(() => { button('Previous topic').focus() })
+    act(() => button('Previous topic').click())
+    expect(button('Previous topic').disabled).toBe(true)
+    expect(document.activeElement).toBe(button('Next topic'))
+  })
+
   it('moves with ArrowRight, ArrowLeft, Home and End, and leaves keys typed in a field alone', () => {
     render()
     keydown('ArrowRight')

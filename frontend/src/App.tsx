@@ -11,6 +11,7 @@ import ComingLater from './features/later/ComingLater'
 import Settings from './components/Settings'
 import Tour, { forgetTourSeen, markTourSeen, tourSeen } from './components/Tour'
 import { useDrawer } from './context/DrawerContext'
+import { useOpenDrawerOnNotice } from './features/data/useOpenDrawerOnNotice'
 
 // ── Probability: Common Distributions ────────────────────────────────────────
 import CommonDistControls from './features/probability/common/CommonDistControls'
@@ -123,6 +124,8 @@ export default function App() {
     if (firstRoute.current) { firstRoute.current = false; return }
     window.scrollTo?.(0, 0)
     const frame = window.requestAnimationFrame(() => {
+      // The Data drawer opened with the page ("Load data" on the front page) has already taken the focus.
+      if (document.activeElement?.closest('.bench-drawer')) return
       document.querySelector<HTMLElement>('h1')?.focus({ preventScroll: true })
     })
     return () => window.cancelAnimationFrame(frame)
@@ -195,6 +198,8 @@ export default function App() {
 
   const { result: probResult, isLoading: probLoading, error: probError, retry: probRetry, appliedParams: probAppliedParams } = useDistribution(probDistParams)
   const { state: dataState } = useData()
+  // Data that could not be brought back after a refresh: open the drawer, where its one line says why.
+  useOpenDrawerOnNotice(dataState.notice, isBenchRoute(route), () => setDrawerOpen(true))
 
   function handleDistChange(name: string) {
     const dist = DISTRIBUTIONS.find((d) => d.name === name)!

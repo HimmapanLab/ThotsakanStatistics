@@ -6,6 +6,18 @@ import type { Route } from '../app/routes'
 import { STATS_SUB_TOPICS, TOP_BAR_TOPICS } from '../content/topics'
 import { CheckIcon, CloseIcon } from './icons'
 
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+
+const hidden = (element: HTMLElement) => { const style = getComputedStyle(element); return style.display === 'none' || style.visibility === 'hidden' }
+
+/** Focus the control that follows `element` in the page's tab order (the element itself when it is the last one). */
+function focusAfter(element: HTMLElement | null) {
+  if (!element) return
+  const all = [...document.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((item) => !item.closest('.tm-pop, [hidden], [inert]') && !hidden(item))
+  const at = all.indexOf(element)
+  ;(all[at + 1] ?? element).focus()
+}
+
 interface TopicMenuProps {
   /** The button that opened it: the menu sits under it. */
   anchor: HTMLElement | null
@@ -72,7 +84,14 @@ export function TopicMenu({ anchor, route, focusToken, onClose, onPointerEnter, 
     else if (event.key === 'ArrowUp') go(i < 0 ? items.length - 1 : i - 1)
     else if (event.key === 'Home') go(0)
     else if (event.key === 'End') go(items.length - 1)
-    else if (event.key === 'Tab') onClose(false)
+    else if (event.key === 'Tab') {
+      // The menu is at the end of the page, so a plain Tab would leave for the start of it. Close it and carry on
+      // from the button that opened it: forward to the control after it, back to the button itself.
+      event.preventDefault()
+      onClose(false)
+      if (event.shiftKey) anchor?.focus()
+      else focusAfter(anchor)
+    }
   }
 
   return createPortal(
