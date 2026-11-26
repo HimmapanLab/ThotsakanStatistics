@@ -29,8 +29,9 @@ interface Request {
 }
 interface Applied extends Request { data: GraphicalResponse }
 
-function freshDraft(sessionId: string | null, columns: string[]): Draft {
-  return { sessionId, cfg: { ...DEFAULT_CONFIG, column: columns[0] ?? '' }, winsorRaw: '0.1, 0.1', autoBins: true }
+/** A new dataset starts with no variable picked: the page waits (step gating) until the reader chooses one. */
+function freshDraft(sessionId: string | null, _columns: string[]): Draft {
+  return { sessionId, cfg: { ...DEFAULT_CONFIG, column: '' }, winsorRaw: '0.1, 0.1', autoBins: true }
 }
 
 /** The inputs saved before a refresh, for this dataset, or a fresh draft. */
@@ -39,7 +40,7 @@ function restoredDraft(sessionId: string | null, columns: string[], filename: st
   const saved = loadPageState<Omit<Draft, 'sessionId'>>('graphical', filename)
   if (!saved?.cfg) return fresh
   const cfg = { ...fresh.cfg, ...saved.cfg }
-  if (!columns.includes(cfg.column)) cfg.column = fresh.cfg.column
+  if (!columns.includes(cfg.column)) cfg.column = fresh.cfg.column // a saved pick that is gone counts as not picked
   return { sessionId, cfg, winsorRaw: saved.winsorRaw ?? fresh.winsorRaw, autoBins: saved.autoBins ?? fresh.autoBins }
 }
 
@@ -54,7 +55,8 @@ export function useGraphicalTabState() {
   ownerRef.current = owner
 
   const [storedDraft, setDraft] = useState(() => restoredDraft(sessionId, numericCols, filename))
-  const draft = storedDraft.sessionId === sessionId ? storedDraft : freshDraft(sessionId, numericCols)
+  // A new session (another dataset, or the same file silently uploaded again) starts from what was saved for this file.
+  const draft = storedDraft.sessionId === sessionId ? storedDraft : restoredDraft(sessionId, numericCols, filename)
   useSavePageState('graphical', dataState.status === 'ready' ? filename : '', { cfg: draft.cfg, winsorRaw: draft.winsorRaw, autoBins: draft.autoBins })
   const cfg = configForDataset(draft.cfg, numericCols)
   const [applied, setApplied] = useState<Applied | null>(null)
@@ -112,7 +114,8 @@ export function useGraphicalTabState() {
   useEffect(() => {
     setDraft((previous) => previous.sessionId === sessionId
       ? { ...previous, cfg: configForDataset(previous.cfg, numericCols) }
-      : freshDraft(sessionId, numericCols))
+      : restoredDraft(sessionId, numericCols, filename))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, numericCols])
 
   // Estimator choices depend on the column (e.g. no geometric mean for negative data).
@@ -128,7 +131,7 @@ export function useGraphicalTabState() {
         setMeanEstimators(means)
         setDeviationEstimators(deviations)
         setDraft((previous) => {
-          const current = previous.sessionId === sessionId ? previous : freshDraft(sessionId, numericCols)
+          const current = previous.sessionId === sessionId ? previous : restoredDraft(sessionId, numericCols, filename)
           const muChoices = [...means, SAMPLE_MEDIAN]
           return { ...current, cfg: {
             ...current.cfg,
@@ -145,6 +148,7 @@ export function useGraphicalTabState() {
         setDraft((previous) => ({ ...previous, cfg: { ...previous.cfg, muEstimator: MEANS[0], sigmaEstimator: DEVIATIONS[0] } }))
       })
     return () => { active = false }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasData, sessionId, cfg.column, numericCols])
 
   // One effect: whenever the request would change, ask again after a short pause. An incomplete draft
@@ -167,10 +171,10 @@ export function useGraphicalTabState() {
 
   const updateConfig = useCallback(<K extends keyof GraphicalConfig>(key: K, value: GraphicalConfig[K]) => {
     setDraft((previous) => {
-      const current = previous.sessionId === sessionId ? previous : freshDraft(sessionId, numericCols)
+      const current = previous.sessionId === sessionId ? previous : restoredDraft(sessionId, numericCols, filename)
       return { ...current, cfg: updateGraphicalConfig(current.cfg, key, value) }
     })
-  }, [sessionId, numericCols])
+  }, [sessionId, numericCols, filename])
 
   const setWinsorRaw = useCallback((winsorRaw: string) => {
     setDraft((previous) => ({ ...previous, winsorRaw }))
@@ -187,7 +191,12 @@ export function useGraphicalTabState() {
 
   const reset = useCallback(() => {
     cancel()
-    setDraft(freshDraft(sessionId, numericCols))
+    // Reset restores the options, not the pick: the steps stay open.
+    setDraft((previous) => {
+      const fresh = freshDraft(sessionId, numericCols)
+      const column = previous.sessionId === sessionId ? previous.cfg.column : ''
+      return { ...fresh, cfg: { ...fresh.cfg, column } }
+    })
     setApplied(null)
     setError(null)
     setIsComputing(false)
@@ -201,7 +210,7 @@ export function useGraphicalTabState() {
   const warnings = [...(estimatorNotice ? [estimatorNotice] : []), ...(result?.warnings ?? [])]
 
   return {
-    cfg, winsorRaw: draft.winsorRaw, autoBins: draft.autoBins, fieldErrors,
+    cfg, picked: !!cfg.column, winsorRaw: draft.winsorRaw, autoBins: draft.autoBins, fieldErrors,
     // Median second: after the mean it is the most common choice.
     muEstimators: [...meanEstimators.slice(0, 1), SAMPLE_MEDIAN, ...meanEstimators.slice(1)], deviationEstimators,
     updateConfig, setWinsorRaw, setAutoBins, normalOn: normalApplies(cfg),

@@ -1,23 +1,30 @@
 import { useMemo, useState, useEffect } from 'react'
 import DualInput from '../../../components/DualInput'
-import { AnalysisActions, Divider, RadioGroup, SectionLabel, SelectField } from '../../../components/ControlPrimitives'
+import { AnalysisActions, RadioGroup, SelectField } from '../../../components/ControlPrimitives'
+import { StepBox } from '../../../components/lab'
 import { DISTRIBUTIONS, paramBounds } from '../../../hooks/useDistribution'
 import { queryDomain } from '../../../math/localDistributions'
 import { opSymbol, type BoundOp, type DistQuery, type QueryOp } from '../../../math/probabilityQuery'
 import { defaultQuery, snapToStep, supportError } from '../../../math/queryDomain'
 import QuerySlider from './QuerySlider'
+import { DistFx, QueryFx } from './ProbFormula'
+import { FxTop } from '../../hypothesis/ui/blocks'
 
 interface CommonDistControlsProps {
-  modelType: 'discrete' | 'continuous'
   distName: string
   paramValues: Record<string, number>
   query: DistQuery
-  onModelTypeChange: (t: 'discrete' | 'continuous') => void
   onDistChange: (name: string) => void
   onParamChange: (key: string, value: number) => void
   onQueryChange: (query: DistQuery) => void
   onReset: () => void
 }
+
+/** Every distribution in one list, the continuous ones first (Normal is where the page opens). */
+const DIST_GROUPS = (['continuous', 'discrete'] as const).map((type) => ({
+  label: type === 'continuous' ? 'Continuous' : 'Discrete',
+  options: DISTRIBUTIONS.filter((dist) => dist.type === type).map((dist) => ({ value: dist.name, label: `${dist.name} Distribution` })),
+}))
 
 const QUERY_OPS: readonly QueryOp[] = ['<=', '<', '=', '>=', '>']
 const BOUND_OPS: readonly BoundOp[] = ['<', '<=']
@@ -68,21 +75,14 @@ function textsShow(texts: { k: string; lower: string; upper: string }, query: Di
 const INCOMPLETE = 'Enter a complete number.'
 
 export default function CommonDistControls({
-  modelType,
   distName,
   paramValues,
   query,
-  onModelTypeChange,
   onDistChange,
   onParamChange,
   onQueryChange,
   onReset,
 }: CommonDistControlsProps) {
-  const availableDists = useMemo(
-    () => DISTRIBUTIONS.filter((d) => d.type === modelType),
-    [modelType]
-  )
-
   const currentDist = DISTRIBUTIONS.find((d) => d.name === distName)
   const domain = useMemo(() => queryDomain(distName, paramValues), [distName, paramValues])
 
@@ -141,77 +141,78 @@ export default function CommonDistControls({
     : null
 
   return (
-    <div className="flex flex-col gap-5">
-
-      <RadioGroup label="Model type" value={modelType} onChange={onModelTypeChange}
-        options={[{ value: 'discrete', label: 'Discrete' }, { value: 'continuous', label: 'Continuous' }]} />
-
-      {/* Distribution dropdown */}
-      <SelectField label="Distribution" value={distName} onChange={onDistChange}
-        options={availableDists.map((dist) => ({ value: dist.name, label: `${dist.name} Distribution` }))} />
-
-      <Divider />
-
-      {/* Distribution parameters */}
-      {currentDist && (
-        <div>
-          <SectionLabel>Parameters</SectionLabel>
-          <div className="flex flex-col gap-4">
-            {currentDist.params.map((param) => (
-              <DualInput
-                key={param.key}
-                label={param.label}
-                value={paramValues[param.key] ?? param.default}
-                {...paramBounds(param, paramValues)}
-                step={param.step}
-                decimals={param.decimals}
-                resetSignal={resetGeneration}
-                onChange={(v) => onParamChange(param.key, param.integer ? Math.round(v) : v)}
-              />
-            ))}
-          </div>
+    <form className="hp-steps" onSubmit={(event) => event.preventDefault()}>
+      <StepBox n={1} title="Distribution">
+        <div className="hp-stack">
+          <FxTop fx={<DistFx name={distName} part="dist" />}>
+            <SelectField label="Distribution" value={distName} onChange={onDistChange}
+              groups={DIST_GROUPS} />
+          </FxTop>
         </div>
-      )}
+      </StepBox>
 
-      <Divider />
-
-      {/* Probability Query */}
-      <div>
-        <SectionLabel>Probability query</SectionLabel>
-        <RadioGroup label="Query" value={query.kind} onChange={changeKind}
-          options={[{ value: 'one-sided', label: 'One-sided' }, { value: 'interval', label: 'Interval' }]} />
-        {query.kind === 'one-sided' ? (
-          <div className="flex items-center gap-1.5">
-            <span className="font-mono text-sm text-[var(--color-text)]">X</span>
-            <OpSelect label="Inequality" value={query.op} options={QUERY_OPS} onChange={(op) => onQueryChange({ ...query, op })} />
-            <ValueInput label="Value (x)" value={texts.k} invalid={!!errors.k} onChange={(raw) => editText('k', raw)} />
-          </div>
-        ) : (
-          <div className="flex items-center gap-1.5">
-            <ValueInput label="Lower value (x₁)" value={texts.lower} invalid={!!(errors.lower || errors.order)}
-              onChange={(raw) => editText('lower', raw)} />
-            <OpSelect label="Lower inequality" value={query.lowerOp} options={BOUND_OPS}
-              onChange={(op) => onQueryChange({ ...query, lowerOp: op })} />
-            <span className="font-mono text-sm text-[var(--color-text)]">X</span>
-            <OpSelect label="Upper inequality" value={query.upperOp} options={BOUND_OPS}
-              onChange={(op) => onQueryChange({ ...query, upperOp: op })} />
-            <ValueInput label="Upper value (x₂)" value={texts.upper} invalid={!!(errors.upper || errors.order)}
-              onChange={(raw) => editText('upper', raw)} />
+      <StepBox n={2} title="Parameters">
+        {currentDist && (
+          <div className="hp-stack">
+            {currentDist.params.map((param, index) => {
+              const field = (
+                <DualInput
+                  key={param.key}
+                  label={param.label}
+                  value={paramValues[param.key] ?? param.default}
+                  {...paramBounds(param, paramValues)}
+                  step={param.step}
+                  decimals={param.decimals}
+                  resetSignal={resetGeneration}
+                  onChange={(v) => onParamChange(param.key, param.integer ? Math.round(v) : v)}
+                />
+              )
+              return index === 0
+                ? <FxTop key={param.key} fx={<DistFx name={distName} part="params" />}>{field}</FxTop>
+                : field
+            })}
           </div>
         )}
-        <div className="mt-3">
-          <QuerySlider min={domain.min} max={domain.max} step={domain.step} fill={fill} onChange={slide}
-            handles={query.kind === 'one-sided' ? [{ label: 'x', value: query.k }]
-              : [{ label: 'x₁', value: query.lower }, { label: 'x₂', value: query.upper }]} />
+      </StepBox>
+
+      <StepBox n={3} title="Query">
+        <div className="hp-stack">
+          <FxTop fx={<QueryFx />}>
+            <RadioGroup label="Probability to find" value={query.kind} onChange={changeKind}
+              options={[{ value: 'one-sided', label: 'One-sided' }, { value: 'interval', label: 'Interval' }]} />
+          </FxTop>
+          {query.kind === 'one-sided' ? (
+            <div className="hp-query-row">
+              <span className="font-mono text-sm text-[var(--color-text)]">X</span>
+              <OpSelect label="Inequality" value={query.op} options={QUERY_OPS} onChange={(op) => onQueryChange({ ...query, op })} />
+              <ValueInput label="Value (x)" value={texts.k} invalid={!!errors.k} onChange={(raw) => editText('k', raw)} />
+            </div>
+          ) : (
+            <div className="hp-query-row">
+              <ValueInput label="Lower value (x₁)" value={texts.lower} invalid={!!(errors.lower || errors.order)}
+                onChange={(raw) => editText('lower', raw)} />
+              <OpSelect label="Lower inequality" value={query.lowerOp} options={BOUND_OPS}
+                onChange={(op) => onQueryChange({ ...query, lowerOp: op })} />
+              <span className="font-mono text-sm text-[var(--color-text)]">X</span>
+              <OpSelect label="Upper inequality" value={query.upperOp} options={BOUND_OPS}
+                onChange={(op) => onQueryChange({ ...query, upperOp: op })} />
+              <ValueInput label="Upper value (x₂)" value={texts.upper} invalid={!!(errors.upper || errors.order)}
+                onChange={(raw) => editText('upper', raw)} />
+            </div>
+          )}
+          <div className="mt-2">
+            <QuerySlider min={domain.min} max={domain.max} step={domain.step} fill={fill} onChange={slide}
+              handles={query.kind === 'one-sided' ? [{ label: 'x', value: query.k }]
+                : [{ label: 'x₁', value: query.lower }, { label: 'x₂', value: query.upper }]} />
+          </div>
+          {messages.filter(Boolean).map((message) => <p key={message} role="alert" className="hp-err">{message}</p>)}
+
+          <AnalysisActions onReset={() => {
+            setResetGeneration(value => value + 1)
+            onReset()
+          }} />
         </div>
-        {messages.filter(Boolean).map((message) => <p key={message} role="alert" className="mt-2 text-xs text-[var(--error)]">{message}</p>)}
-      </div>
-
-      <AnalysisActions onReset={() => {
-        setResetGeneration(value => value + 1)
-        onReset()
-      }} />
-
-    </div>
+      </StepBox>
+    </form>
   )
 }

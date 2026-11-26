@@ -216,7 +216,7 @@ export default function DualInput({
         onChange={handleTextChange}
         onBlur={handleTextCommit}
         onKeyDown={handleKeyDown}
-        className="w-full px-2 py-1 text-sm rounded font-mono tabular-nums
+        className="w-full min-h-[var(--control-h)] px-2 py-1 text-sm rounded font-mono tabular-nums
           bg-[var(--color-bg-input)]
           border border-[var(--color-border-md)]
           text-[var(--color-text)]

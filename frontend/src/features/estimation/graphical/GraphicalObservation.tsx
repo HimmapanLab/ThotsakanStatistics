@@ -1,14 +1,12 @@
 // features/estimation/graphical/GraphicalObservation.tsx
-// Centre panel: the plot itself. Histogram / ECDF with the
-// requested overlays.
+// Results of Graphical Analysis: the values behind the curves first (a table), then the plot (histogram or ECDF)
+// with the requested overlays. Everything comes from the backend result.
 
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, type ReactNode } from 'react'
 import createPlotlyComponent from 'react-plotly.js/factory'
 import Plotly from 'plotly.js-basic-dist-min'
 import type { GraphicalResponse } from '../../../api/graphical'
-import ResultSection from '../../../components/ResultSection'
-import ResultToolbar from '../../../components/ResultToolbar'
-import { EmptyState } from '../../../components/StatusBanner'
+import MathFormula from '../../../components/MathFormula'
 import { downloadChartsPNG } from '../../../utils/exportPNG'
 import { downloadCSV } from '../../../utils/exportCSV'
 import { downloadPDF } from '../../../utils/exportPDF'
@@ -16,6 +14,10 @@ import { exportFilename } from '../../../utils/exportFilename'
 import { useChartRegistry } from '../../../hooks/useChartRegistry'
 import { HISTOGRAM_MARKER, PLOT_AXIS, PLOT_COLORS, PLOT_CONFIG, baseLayout } from '../../../plot/theme'
 import { formatCount, formatNumber, PRECISION_DEFAULT } from '../../../utils/formatNumber'
+import ResultsFrame, { ResultsSection, Warnings } from '../shared/ResultsFrame'
+import ResultsTable, { Legend, type LegendItem, type TableRow } from '../shared/ResultsTable'
+import PlotBox from '../shared/PlotBox'
+import { GraphFx, type GraphTopic } from './graphicalFormulas'
 
 const Plot = createPlotlyComponent(Plotly)
 
@@ -34,11 +36,12 @@ interface GraphicalObservationProps {
   result: GraphicalResponse | null
   column: string
   graphType: string
-  hasData: boolean
-  /** A dataset is loaded (it may have no numeric variables). */
-  loaded: boolean
   isComputing: boolean
-  /** Decimals for hovers and the PDF summary (docs/decisions.md, "Display precision"). */
+  error?: string | null
+  onRetry?: () => void
+  /** Backend warnings (and the estimator notice), shown under the table they are about. */
+  warnings?: readonly string[]
+  /** Decimals for tables, hovers and the PDF summary (docs/decisions.md, "Display precision"). */
   precision?: number
 }
 
@@ -59,7 +62,7 @@ function barsFromEdges(bins: number[], densities: number[]) {
 }
 
 export default function GraphicalObservation({
-  result, column, graphType, hasData, loaded, isComputing, precision = PRECISION_DEFAULT,
+  result, column, graphType, isComputing, error = null, onRetry, warnings = [], precision = PRECISION_DEFAULT,
 }: GraphicalObservationProps) {
   const registry = useChartRegistry(CHART_ORDER)
 
@@ -123,26 +126,24 @@ export default function GraphicalObservation({
     return out
   }, [result, graphType, precision])
 
-  const title =
-    graphType === 'ECDF' ? 'Empirical Cumulative Distribution Function' : `Distribution of ${column}`
-
-  const layout = useMemo(() => {
-    const yTitle =
-      graphType === 'ECDF' ? 'ECDF' : 'Density'
-
+  const layoutFor = useCallback((height: number) => {
+    const yTitle = graphType === 'ECDF' ? 'ECDF' : 'Density'
     return baseLayout({
       autosize: true,
+      height,
       margin: { l: 56, r: 20, t: 12, b: 44 },
       // Touching histogram bars.
       bargap: 0.02,
-      xaxis: { ...AXIS, title: column },
+      // automargin makes room for the axis titles; a plain decimal format keeps small densities as 0.0002, not 200µ.
+      xaxis: { ...AXIS, title: { text: column, standoff: 6 }, automargin: true },
       yaxis: {
         ...AXIS,
-        title: yTitle,
-        ...(graphType === 'ECDF' ? { range: [0, 1.05] } : {}),
+        title: { text: yTitle, standoff: 6 },
+        automargin: true,
+        ...(graphType === 'ECDF' ? { range: [0, 1.05] } : { tickformat: '.6~f' }),
       },
-      showlegend: true,
-      legend: { font: { color: PLOT_COLORS.axisText, size: 12 }, bgcolor: 'transparent', orientation: 'h', y: -0.18 },
+      // The key under the plot (Legend) names every curve, so the plot draws none.
+      showlegend: false,
     })
   }, [column, graphType])
 
@@ -183,43 +184,81 @@ export default function GraphicalObservation({
       subtitle: graphType,
       stats,
       filename: exportFilename(`graphical-${column}-${graphType}-report`, 'pdf', 'graphical-analysis'),
+      precision,
     })
   }, [result, column, graphType, registry.charts, precision])
 
   const exportReady = !!result && !isComputing && registry.ready
 
-  // ── States ────────────────────────────────────────────────────────────────
-  if (!hasData) {
-    return <EmptyState loaded={loaded} hasData={false} />
+  // ── Values behind the curves (table first) ───────────────────────────────
+  const ecdf = graphType === 'ECDF'
+  const rows: TableRow[] = []
+  if (result) {
+    const sym = (tex: string, name: string) => <><MathFormula inline tex={tex} /> <span className="plain">{name}</span></>
+    const row = (key: string, q: string, label: ReactNode, value: number | null | undefined, topic: GraphTopic, name: string) =>
+      rows.push({ key, q, cells: { quantity: label, value: formatNumber(value, precision) }, fx: <GraphFx topic={topic} ecdf={ecdf} name={name} /> })
+    if (!ecdf && result.kde_curve) {
+      row('h', 'q-kde', sym('h', 'Bandwidth h used'), result.kde_curve.bandwidth, 'kde', 'KDE bandwidth h')
+      row('hs', 'q-kde', sym(String.raw`h_{\text{Scott}}`, 'Scott’s rule bandwidth'), result.kde_curve.default_bandwidth, 'scott', 'Scott’s rule bandwidth')
+    }
+    if (result.normal_curve || result.point_estimates?.mu != null || result.point_estimates?.sigma != null) {
+      row('mu', 'q-normal', sym(String.raw`\hat{\mu}`, 'Mean used by the normal model'), result.point_estimates?.mu, 'normal', 'normal model mean')
+      row('sigma', 'q-normal', sym(String.raw`\hat{\sigma}`, 'Standard deviation used by the normal model'), result.point_estimates?.sigma, 'normal', 'normal model standard deviation')
+    }
+    if (ecdf && result.ecdf_data?.lower && result.alpha != null) {
+      row('alpha', 'q-data', sym(String.raw`\alpha`, 'Significance level α'), result.alpha, 'band', 'significance level')
+      row('eps', 'q-data', sym(String.raw`\varepsilon`, 'Half-width of the band'), result.ecdf_data.epsilon, 'band', 'band half-width epsilon')
+    }
   }
 
-  // While the first result is computing, the status banner above already says so.
-  if (!result) return isComputing ? null : <EmptyState loaded={loaded} hasData />
+  const legend: LegendItem[] = ecdf
+    ? [{ label: 'ECDF (step line)', kind: 'solid', color: C_MAIN }]
+    : [{ label: 'Histogram (density)', kind: 'area', color: C_MAIN }]
+  if (result?.kde_curve) legend.push({ label: 'KDE', kind: 'solid', color: C_KDE })
+  if (result?.ecdf_data?.lower) legend.push({ label: 'Confidence band', kind: 'area', color: C_MAIN })
+  if (result?.normal_curve) legend.push({ label: 'Normal model', kind: 'dashed', color: C_NORMAL })
 
   return (
-    <div className="analysis-observation flex flex-col">
-      <ResultToolbar title={`Graphical analysis — ${column}`}
-        exports={exportReady ? { png: handleExportPNG, csv: handleExportCSV, pdf: handleExportPDF } : undefined}
-        ready={exportReady} disabledReason={isComputing ? 'Waiting for the updated result.' : 'Chart is still loading.'} />
-      <ResultSection title={title}>
-        <Plot
-          data={traces}
-          layout={layout}
-          config={CONFIG}
-          useResizeHandler
-          style={{ width: '100%', height: 440 }}
-          onInitialized={registry.register('graphical', `${graphType} for ${column}`)}
-          onUpdate={registry.register('graphical', `${graphType} for ${column}`)}
-          onPurge={registry.unregister('graphical')}
-        />
-      </ResultSection>
-      {result.histogram_data && (
-        <div className="px-2 pb-3">
-          <p className="text-sm text-[var(--color-text-muted)] leading-relaxed mb-3">
-            Bar area represents proportion; height shows density. Hover a bar for its bin bounds and observation count.
-          </p>
-        </div>
+    <ResultsFrame title={`Graphical Analysis · ${column}`} n={result?.summary.n}
+      updating={isComputing} error={error} onRetry={onRetry}
+      exports={exportReady ? { png: handleExportPNG, csv: handleExportCSV, pdf: handleExportPDF } : undefined}
+      exportReady={exportReady} exportReason={isComputing ? 'Waiting for the updated result.' : 'Chart is still loading.'}>
+      {!result ? (isComputing ? <p className="est-note">Computing the plot…</p> : null) : (
+        <>
+          {rows.length > 0 && (
+            <ResultsSection title="Values">
+              <ResultsTable caption="Values behind the curves" columns={[
+                { key: 'quantity', label: 'Quantity' }, { key: 'value', label: 'Value', num: true },
+              ]} rows={rows} />
+              <Warnings items={warnings} />
+            </ResultsSection>
+          )}
+          <ResultsSection title={ecdf ? 'ECDF' : 'Histogram'}>
+            {rows.length === 0 && <Warnings items={warnings} />}
+            <PlotBox>
+              {(height) => (
+                <Plot
+                  data={traces}
+                  layout={layoutFor(height)}
+                  config={CONFIG}
+                  useResizeHandler
+                  style={{ width: '100%', height }}
+                  onInitialized={registry.register('graphical', `${graphType} for ${column}`)}
+                  onUpdate={registry.register('graphical', `${graphType} for ${column}`)}
+                  onPurge={registry.unregister('graphical')}
+                />
+              )}
+            </PlotBox>
+            <Legend items={legend} />
+            {result.histogram_data && (
+              <p className="est-note">Bar area represents proportion; height shows density. Hover a bar for its bin bounds and observation count.</p>
+            )}
+            {result.histogram_data?.unit_width && (
+              <p className="est-note">Every value is a whole number with repeats, so the bins are automatic: one bar of width 1 per whole number.</p>
+            )}
+          </ResultsSection>
+        </>
       )}
-    </div>
+    </ResultsFrame>
   )
 }

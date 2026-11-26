@@ -10,6 +10,7 @@ interface Shape { type: string; x0: number; x1: number; y0: number; y1: number; 
 interface Layout { annotations?: unknown[]; shapes?: Shape[] }
 const plot = vi.hoisted(() => ({ layout: null as null | Layout, data: [] as { type: string; marker?: unknown }[] }))
 vi.mock('react-plotly.js', () => ({ default: (props: { layout: Layout; data: { type: string }[] }) => { plot.layout = props.layout; plot.data = props.data; return null } }))
+vi.mock('../../../context/DataContext', () => ({ useData: () => ({ state: { filename: 'sample.csv', dataset: null, filters: {} }, filteredRows: [] }) }))
 vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
 
 const rows: StatRow[] = [
@@ -36,29 +37,48 @@ beforeEach(() => {
 })
 afterEach(() => act(() => root.unmount()))
 const render = (show: boolean) => act(() => root.render(
-  <DescriptiveObservation result={result} config={config(show)} rows={rows} hasData loaded precision={2} />))
+  <DescriptiveObservation result={result} config={config(show)} rows={rows} precision={2} />))
 const headers = () => [...container.querySelectorAll('th')].map((th) => th.textContent)
 const rowOf = (name: string) => [...container.querySelectorAll('tbody tr')].find((tr) => tr.textContent?.includes(name))!
 
 describe('Descriptive statistics table', () => {
-  it('names the columns Statistic and Normal-corrected', () => {
+  it('tags a statistic the backend marks robust (MAD) as Robust, and no other row', () => {
     render(true)
-    expect(headers()).toEqual(['Category', 'Statistic', 'Value', 'Normal-corrected'])
+    expect(rowOf('MAD').textContent).toContain('Robust')
+    expect(rowOf('Mean').textContent).not.toContain('Robust')
+    expect(rowOf('Std (ddof=1)').textContent).not.toContain('Robust')
   })
 
-  it('tags each corrected statistic with the properties of its corrected value, in color', () => {
+  it('names the columns Statistic and Normal-corrected, with a column for the formula buttons', () => {
     render(true)
-    const tags = (name: string) => [...rowOf(name).querySelectorAll('[data-tag="correction"]')]
+    expect(headers()).toEqual(['Statistic', 'Value', 'Normal-corrected', 'Formula'])
+  })
+
+  it('groups the rows under a heading per category, and puts the table before the plot', () => {
+    render(true)
+    expect([...container.querySelectorAll('tr.grp')].map((tr) => tr.textContent)).toEqual(['Central Tendency', 'Dispersion'])
+    expect([...container.querySelectorAll('h3')].map((h) => h.textContent)).toEqual(['Statistics', 'Histogram and box plot'])
+  })
+
+  it('gives every row with a statistic id its own formula button, and colours mean and median like their plot lines', () => {
+    render(true)
+    expect([...container.querySelectorAll('tbody button.lab-fx')].map((b) => b.getAttribute('aria-label')))
+      .toEqual(['Formula for Mean', 'Formula for Std dev (ddof=1)', 'Formula for MAD (median absolute deviation)'])
+    expect(rowOf('Mean').className).toContain('q-mean')
+  })
+
+  it('tags each corrected statistic, in the corrected column, with the properties of its corrected value, in color', () => {
+    render(true)
+    const tags = (name: string) => [...rowOf(name).querySelectorAll('td:nth-child(3) [data-tag="correction"]')]
     expect(tags('Std (ddof=1)').map((tag) => tag.textContent)).toEqual(['Unbiased', 'Consistent'])
     expect(tags('MAD').map((tag) => tag.textContent)).toEqual(['Consistent'])
     expect(tags('Mean')).toHaveLength(0)
     expect(tags('Std (ddof=1)')[0].className).not.toBe(tags('Std (ddof=1)')[1].className)
-    for (const tag of tags('Std (ddof=1)')) expect(tag.className).not.toContain('color-text-muted')
   })
 
   it('without the normal-corrected column, keeps only the tags of the statistics as shown', () => {
     render(false)
-    expect(headers()).toEqual(['Category', 'Statistic', 'Value'])
+    expect(headers()).toEqual(['Statistic', 'Value', 'Formula'])
     const tags = (name: string) => [...rowOf(name).querySelectorAll('[data-tag="correction"]')].map((tag) => tag.textContent)
     expect(tags('Std (ddof=1)')).toEqual(['Consistent'])
     expect(tags('MAD')).toEqual([])
@@ -75,7 +95,15 @@ describe('Descriptive distribution chart', () => {
     render(true)
     const legend = container.querySelector('[aria-label="Plot legend"]')!
     const items = [...legend.querySelectorAll('li')].map((li) => li.textContent)
-    expect(items).toEqual(['Mean 1.00', 'Median 1.50', 'Box Q1 1.11 – Q3 2.22', 'Whiskers 0.00 – 3.00', 'Outliers 2'])
+    expect(items).toEqual(['Histogram (count per bin)', 'Mean 1.00', 'Median 1.50', 'Box Q1 1.11 – Q3 2.22', 'Whiskers 0.00 – 3.00', 'Outliers 2'])
+  })
+
+  it('says the whiskers sit at the fences, as the plot and the legend draw them, and never that they are clipped', () => {
+    render(true)
+    const note = container.querySelector('.est-note')!.textContent!
+    expect(note).toContain('whiskers sit at the fences')
+    expect(note).toContain('Q1 − 1.5 × IQR and Q3 + 1.5 × IQR')
+    expect(container.textContent).not.toContain('clipped')
   })
 
   it('draws the histogram soft, so the mean and median lines stand out', () => {

@@ -3,7 +3,8 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { computeDescriptiveStats, type DescriptiveResult, type StatRow } from '../../../api/descriptive'
 import { useDescriptiveTabState } from './useDescriptiveTabState'
-import { DescriptiveStatus } from './DescriptiveTab'
+import { ObservationSlot } from './DescriptiveTab'
+import { DrawerProvider } from '../../../context/DrawerContext'
 
 const data = {
   state: {
@@ -14,6 +15,7 @@ const data = {
   filteredRows: [{ a: '1', b: '2' }],
 }
 vi.mock('../../../context/DataContext', () => ({ useData: () => data }))
+vi.mock('react-plotly.js', () => ({ default: () => null }))
 vi.mock('../../../api/descriptive', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../api/descriptive')>()
   return { ...actual, computeDescriptiveStats: vi.fn() }
@@ -31,7 +33,7 @@ function result(mean: number, rows: StatRow[] = []): DescriptiveResult {
 let root: Root
 let container: HTMLDivElement
 let hook!: ReturnType<typeof useDescriptiveTabState>
-function Harness() { hook = useDescriptiveTabState(); return <DescriptiveStatus state={hook} /> }
+function Harness() { hook = useDescriptiveTabState(); return <DrawerProvider><ObservationSlot state={hook} /></DrawerProvider> }
 const settle = () => act(async () => { await vi.advanceTimersByTimeAsync(250) })
 const calls = () => vi.mocked(computeDescriptiveStats).mock.calls
 const lastRequest = () => calls()[calls().length - 1][0]
@@ -47,7 +49,8 @@ afterEach(() => {
   act(() => root.unmount())
   vi.useRealTimers()
 })
-const mount = () => act(() => root.render(<Harness />))
+// Step gating: nothing is picked for the reader, so a test mounts the page and then picks a variable.
+const mount = () => { act(() => root.render(<Harness />)); act(() => hook.setDraft({ column: 'a' })) }
 
 describe('descriptive result ownership', () => {
   it('asks for a result as soon as there is data, with the default statistics', async () => {
@@ -133,10 +136,11 @@ describe('descriptive result ownership', () => {
     vi.mocked(computeDescriptiveStats).mockResolvedValue(result(3))
     mount()
     await settle()
-    act(() => hook.setDraft({ column: 'b' }))
+    act(() => hook.setDraft({ column: 'b', quantilesRaw: '0.5' }))
     await settle()
     act(() => hook.handleReset())
-    expect(hook.draft.column).toBe('a')
+    expect(hook.draft.column).toBe('b') // Reset restores the options, not the pick
+    expect(hook.draft.quantilesRaw).toBe('0.25, 0.5, 0.75')
     expect(hook.result?.summary.mean).toBe(3)
   })
 })
@@ -188,6 +192,43 @@ describe('descriptive validation', () => {
   })
 })
 
+describe('descriptive step gating', () => {
+  it('starts with no variable picked, asks for nothing, and says what to do in the results area', async () => {
+    act(() => root.render(<Harness />))
+    await settle()
+    expect(hook.picked).toBe(false)
+    expect(calls()).toHaveLength(0)
+    expect(container.textContent).toContain('Pick a variable to start')
+  })
+
+  it('keeps the pick when the options are reset', async () => {
+    vi.mocked(computeDescriptiveStats).mockResolvedValue(result(1))
+    mount()
+    await settle()
+    act(() => hook.handleReset())
+    expect(hook.draft.column).toBe('a')
+    expect(hook.picked).toBe(true)
+  })
+
+  it('never asks the new dataset about a variable that only the old one has', async () => {
+    vi.mocked(computeDescriptiveStats).mockResolvedValue(result(1))
+    mount()
+    await settle()
+    expect(calls()).toHaveLength(1)
+    const before = structuredClone(data.state)
+    // Another dataset arrives: a new session and file, and no column "a".
+    Object.assign(data.state, { sessionId: 'session-b', filename: 'other.csv', numericCols: ['c'] })
+    try {
+      act(() => root.render(<Harness />))
+      await settle()
+      expect(calls()).toHaveLength(1)
+      expect(hook.picked).toBe(false)
+    } finally {
+      Object.assign(data.state, before)
+    }
+  })
+})
+
 describe('descriptive status', () => {
   it('warnings stay until the result changes', async () => {
     vi.mocked(computeDescriptiveStats).mockResolvedValue(result(1, [
@@ -200,10 +241,10 @@ describe('descriptive status', () => {
     expect(list?.textContent).toBe('Mean: Few observations.')
   })
 
-  it('shows no file · variable · n line above the result', async () => {
+  it('names the file and n under the results heading', async () => {
     vi.mocked(computeDescriptiveStats).mockResolvedValue(result(1))
     mount()
     await settle()
-    expect(container.textContent).not.toContain('sample.csv')
+    expect(container.querySelector('.lab-output-sub')?.textContent).toContain('sample.csv · n = 1')
   })
 })

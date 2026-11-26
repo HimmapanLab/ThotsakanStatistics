@@ -191,7 +191,8 @@ html { scrollbar-gutter: stable; }
   margin-top: auto;
   padding: 12px 0 16px;
   border-top: 1px solid var(--color-border);
-  background: var(--color-bg-panel);
+  /* The colour of the inputs panel it sits in (--inset), so it reads as part of it yet hides what scrolls under it. */
+  background: var(--inset);
 }
 .lab-bench :is(select, input) { max-width: 100%; min-width: 0; }
 :where(button, input, select, summary, a, [tabindex]):focus-visible {
@@ -227,3 +228,7 @@ button:disabled { cursor: not-allowed; }
   .lab-bench .animate-spin, .lab-bench .animate-pulse { animation: none; }
 }
 
+
+/* KaTeX draws a subscript or superscript at 0.7 of the formula, which is 11.9 px at the usual size. Keep every
+   formula at least 17.2 px so its sub- and superscripts are never under 12 px. */
+:root .katex { font-size: max(1.21em, 17.2px); }

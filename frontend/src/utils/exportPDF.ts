@@ -2,8 +2,9 @@ import Plotly from 'plotly.js-basic-dist-min'
 import jsPDF from 'jspdf'
 import type { CSVCell } from './exportCSV'
 import type { ExportChart } from './exportPNG'
+import { MISSING, formatNumber } from './formatNumber'
 
-export interface PDFStat { label: string; value: string }
+export interface PDFStat { label: string; value: CSVCell }
 export interface PDFTable { title: string; columns: string[]; rows: CSVCell[][] }
 export interface PDFExportOptions {
   title: string
@@ -12,14 +13,24 @@ export interface PDFExportOptions {
   stats?: PDFStat[]
   tables?: PDFTable[]
   filename?: string
+  /** The reader's display precision: every number in the report is rounded as on screen (decisions.md). */
+  precision: number
+}
+
+/** A stat or table cell as text: numbers by the display-precision rule, a missing value as the missing marker. */
+function cellText(value: CSVCell, precision: number): string {
+  if (typeof value === 'number') return formatNumber(value, precision)
+  if (value == null || value === '') return MISSING
+  return String(value)
 }
 
 const ascii = (value: string) => value
+  .replaceAll(MISSING, '-').replaceAll('∞', 'inf')
   .replaceAll('α', 'alpha').replaceAll('μ', 'mu').replaceAll('σ', 'sigma')
   .replaceAll('≤', '<=').replaceAll('≥', '>=').replaceAll('≠', '!=').replaceAll('−', '-')
   .replace(/[^\x20-\x7E]/g, '?')
 
-export async function downloadPDF({ title, subtitle, charts, stats = [], tables = [], filename = 'report.pdf' }: PDFExportOptions) {
+export async function downloadPDF({ title, subtitle, charts, stats = [], tables = [], filename = 'report.pdf', precision }: PDFExportOptions) {
   if (!charts.length || charts.some((chart) => !chart.element?.isConnected)) {
     throw new Error('Charts are still loading. Try exporting again in a moment.')
   }
@@ -40,7 +51,7 @@ export async function downloadPDF({ title, subtitle, charts, stats = [], tables 
     if (y > height - 18) { doc.addPage(); y = 18 }
     doc.setFont('helvetica', 'bold'); doc.setTextColor(50, 50, 80); doc.text(ascii(stat.label), margin, y)
     doc.setFont('helvetica', 'normal'); doc.setTextColor(30, 30, 30)
-    const lines = doc.splitTextToSize(ascii(stat.value), width - 70)
+    const lines = doc.splitTextToSize(ascii(cellText(stat.value, precision)), width - 70)
     doc.text(lines, 60, y)
     y += Math.max(7, lines.length * 5)
   })
@@ -75,7 +86,7 @@ export async function downloadPDF({ title, subtitle, charts, stats = [], tables 
     }
     header()
     for (const row of table.rows) {
-      const cells = table.columns.map((_, index) => doc.splitTextToSize(ascii(row[index] == null ? '' : String(row[index])), colWidth - 2))
+      const cells = table.columns.map((_, index) => doc.splitTextToSize(ascii(cellText(row[index], precision)), colWidth - 2))
       const rowHeight = Math.max(6, ...cells.map((lines) => lines.length * 4))
       if (y + rowHeight > height - 14) { doc.addPage(); y = 18; header() }
       doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(30, 30, 30)

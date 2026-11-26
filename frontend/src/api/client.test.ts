@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, liveSessionId, postJson, resetSessionAliases, setSessionRenewer } from './client'
+import { ApiError, UNREACHABLE, liveSessionId, postJson, resetSessionAliases, setSessionRenewer } from './client'
 
 const LOST = JSON.stringify({ detail: 'Session expired or not found. Please upload the dataset again.' })
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
@@ -79,6 +79,16 @@ describe('postJson', () => {
     window.dispatchEvent(new Event('online'))
     await expect(pending).resolves.toEqual({ ok: true })
     expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('says the server cannot be reached, not the browser text "Failed to fetch"', async () => {
+    fetchMock.mockRejectedValue(new TypeError('Failed to fetch'))
+    await expect(postJson('/api/x', {})).rejects.toThrow(UNREACHABLE)
+  })
+
+  it('passes a cancelled request through as an AbortError', async () => {
+    fetchMock.mockRejectedValue(new DOMException('Aborted', 'AbortError'))
+    await expect(postJson('/api/x', {})).rejects.toMatchObject({ name: 'AbortError' })
   })
 
   it('stops waiting when the request is cancelled', async () => {

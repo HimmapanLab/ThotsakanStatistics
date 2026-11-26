@@ -1,15 +1,16 @@
 // features/estimation/descriptive/DescriptiveObservation.tsx
-// Center panel: statistics table + histogram and box plot
+// Results of Descriptive Statistics: the statistics table first, then the histogram and box plot. Everything
+// comes from the backend result; rounding happens here, in display precision only.
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useCallback } from 'react'
 import Plot from 'react-plotly.js'
 import { type DescriptiveResult, type StatRow } from '../../../api/descriptive'
 import type { DescriptiveConfig } from './useDescriptiveTabState'
 import { estimatorTags } from './descriptiveOptions'
-import ResultToolbar from '../../../components/ResultToolbar'
-import ResultSection from '../../../components/ResultSection'
-import ResultTable, { TableTagLabel } from '../../../components/ResultTable'
-import { EmptyState } from '../../../components/StatusBanner'
+import { StatFx } from './descriptiveFormulas'
+import ResultsFrame, { ResultsSection, Warnings } from '../shared/ResultsFrame'
+import ResultsTable, { Legend, type TableRow } from '../shared/ResultsTable'
+import PlotBox from '../shared/PlotBox'
 import { HISTOGRAM_MARKER, PLOT_AXIS, PLOT_COLORS, PLOT_CONFIG, baseLayout } from '../../../plot/theme'
 import { downloadCSV } from '../../../utils/exportCSV'
 import { downloadChartsPNG } from '../../../utils/exportPNG'
@@ -25,57 +26,65 @@ const BOX = { histTop: 0.73, bottom: 0.78, low: 0.81, capLow: 0.85, middle: 0.89
 
 // ─── Statistics Table ─────────────────────────────────────────────────────────
 
-function StatsTable({ rows, showConsistencyCorr, precision }: {
-  rows: StatRow[]; showConsistencyCorr: boolean; precision: number
+const TAG_TITLE = {
+  Unbiased: 'Unbiased under normality',
+  Consistent: 'Consistent: converges to the true value as n grows',
+} as const
+const quantityClass = (id?: string) => id === 'mean' ? 'q-mean' : id === 'median' ? 'q-median' : undefined
+
+function Tags({ tags }: { tags: readonly ('Unbiased' | 'Consistent')[] }) {
+  return <>{tags.map((tag) => (
+    <span key={tag} className={`est-tag est-tag-${tag.toLowerCase()}`} data-tag="correction" title={TAG_TITLE[tag]}>{tag}</span>
+  ))}</>
+}
+
+function StatsTable({ rows, showConsistencyCorr, precision, n }: {
+  rows: StatRow[]; showConsistencyCorr: boolean; precision: number; n: number
 }) {
   const fmt = (v: number | null) => formatNumber(v, precision)
   const columns = [
     { key: 'measure', label: 'Statistic' },
-    { key: 'value', label: 'Value', align: 'right' as const },
-    ...(showConsistencyCorr ? [{ key: 'corr', label: 'Normal-corrected', align: 'right' as const }] : []),
+    { key: 'value', label: 'Value', num: true },
+    ...(showConsistencyCorr ? [{ key: 'corr', label: 'Normal-corrected', num: true }] : []),
   ]
-  return (
-    <ResultTable caption="Descriptive statistics" columns={columns} rows={rows.map((row) => ({
+  const tableRows: TableRow[] = rows.map((row, index) => {
+    const corrected = showConsistencyCorr && row.consistencyCorr != null
+    // c₄(n) is a fixed constant of the method, shown at 6 decimals whatever the display precision.
+    const c4 = row.statId === 'std_dev_1' && corrected && row.value != null && row.consistencyCorr !== 0
+      ? `c₄(n = ${n}) = ${(row.value / row.consistencyCorr!).toFixed(6)}` : undefined
+    return {
+      key: `${row.statId ?? row.measure}-${index}`,
       group: row.category,
+      q: quantityClass(row.statId),
       cells: {
         measure: (
-          <span className="flex items-center gap-2">
+          <>
             {row.measure}
-            {row.robust && <TableTagLabel tag="Robust" title="Robust statistic" />}
-            {estimatorTags(row, showConsistencyCorr).map((tag) => (
-              <TableTagLabel key={tag} tag={tag} dataTag="correction"
-                title={tag === 'Unbiased' ? 'Unbiased under normality' : 'Consistent: converges to the true value as n grows'} />
-            ))}
-          </span>
+            {row.robust && <span className="est-tag est-tag-robust" title="Robust statistic">Robust</span>}
+            <Tags tags={estimatorTags(row, false)} />
+          </>
         ),
         value: fmt(row.value),
-        corr: fmt(row.consistencyCorr),
+        corr: (
+          <span className="est-cellstack">
+            <span>{row.consistencyCorr != null ? <Tags tags={estimatorTags(row, true)} /> : null}</span>
+            <span className="val">{fmt(row.consistencyCorr)}</span>
+          </span>
+        ),
       },
-    }))} />
-  )
+      fx: row.statId ? <StatFx id={row.statId} corrected={corrected} note={c4} /> : undefined,
+    }
+  })
+  return <ResultsTable caption={`n = ${n.toLocaleString('en-US')}`} columns={columns} rows={tableRows} />
 }
 
 // ─── Charts ───────────────────────────────────────────────────────────────────
 
-function DescriptiveCharts({ result, colName, precision, onReady, onPurge }: {
-  result: DescriptiveResult; colName: string; precision: number
+function DescriptiveCharts({ result, colName, precision, height, onReady, onPurge }: {
+  result: DescriptiveResult; colName: string; precision: number; height: number
   onReady: (figure: unknown, element: HTMLElement) => void
   onPurge: () => void
 }) {
-  const wrapperRef = useRef<HTMLDivElement>(null)
-  const [plotWidth, setPlotWidth] = useState<number | undefined>(undefined)
-
-  useEffect(() => {
-    const el = wrapperRef.current
-    if (!el) return
-    const observer = new ResizeObserver(entries => {
-      const width = entries[0]?.contentRect.width
-      if (width) setPlotWidth(width)
-    })
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [])
-
   const { histogram, boxData } = result
 
   // Build histogram bin centers and width
@@ -143,8 +152,8 @@ function DescriptiveCharts({ result, colName, precision, onReady, onPurge }: {
   // ── Layout ──────────────────────────────────────────────────────────────
   const layout = baseLayout({
     margin: { t: 12, b: 48, l: 52, r: 12 },
-    width: plotWidth,
-    height: 400,
+    autosize: true,
+    height,
     dragmode: 'pan' as const,
     hovermode: 'closest' as const,
     xaxis: { ...PLOT_AXIS, title: { text: colName }, tickformat: '.4~g', nticks: 6, automargin: true },
@@ -168,26 +177,28 @@ function DescriptiveCharts({ result, colName, precision, onReady, onPurge }: {
     ],
   })
 
-  const value = (v: number) => <span className="font-mono tabular-nums text-[var(--color-text)]">{fmt(v)}</span>
   return (
-    <div ref={wrapperRef}>
-      <ul aria-label="Plot legend" className="mb-2 flex flex-wrap gap-x-4 gap-y-2 text-xs text-[var(--color-text-muted)]">
-        <li className="flex items-center gap-2"><span aria-hidden="true" className="w-5 border-t-2 border-dashed" style={{ borderColor: PLOT_COLORS.mean }} />Mean {value(result.summary.mean)}</li>
-        <li className="flex items-center gap-2"><span aria-hidden="true" className="w-5 border-t-2 border-dotted" style={{ borderColor: PLOT_COLORS.median }} />Median {value(boxData.median)}</li>
-        <li className="flex items-center gap-2"><span aria-hidden="true" className="h-3 w-4 border" style={{ background: PLOT_COLORS.dataBand, borderColor: PLOT_COLORS.data }} />Box Q1 {value(boxData.q1)} – Q3 {value(boxData.q3)}</li>
-        <li className="flex items-center gap-2"><span aria-hidden="true" className="w-5 border-t-2" style={{ borderColor: PLOT_COLORS.data }} />Whiskers {value(boxData.whiskerLo)} – {value(boxData.whiskerHi)}</li>
-        <li className="flex items-center gap-2"><span aria-hidden="true" className="h-2.5 w-2.5 rounded-full" style={{ background: PLOT_COLORS.outlier }} />Outliers <span className="font-mono tabular-nums text-[var(--color-text)]">{boxData.outliers.length}</span></li>
-      </ul>
+    <>
       <Plot
         data={traces}
         layout={layout}
         config={PLOT_CONFIG}
         useResizeHandler
+        style={{ width: '100%', height }}
         onInitialized={onReady}
         onUpdate={onReady}
         onPurge={onPurge}
       />
-    </div>
+      <Legend items={[
+        { label: 'Histogram (count per bin)', kind: 'area', color: PLOT_COLORS.data },
+        { label: 'Mean', kind: 'dashed', color: PLOT_COLORS.mean, value: fmt(result.summary.mean) },
+        { label: 'Median', kind: 'dotted', color: PLOT_COLORS.median, value: fmt(boxData.median) },
+        { label: 'Box Q1', kind: 'area', color: PLOT_COLORS.data, value: `${fmt(boxData.q1)} – Q3 ${fmt(boxData.q3)}` },
+        { label: 'Whiskers', kind: 'solid', color: PLOT_COLORS.data, value: `${fmt(boxData.whiskerLo)} – ${fmt(boxData.whiskerHi)}` },
+        { label: 'Outliers', kind: 'dot', color: PLOT_COLORS.outlier, value: String(boxData.outliers.length) },
+      ]} />
+      <p className="est-note">Box plot: the whiskers sit at the fences, Q1 − 1.5 × IQR and Q3 + 1.5 × IQR, even where no value lies that far out; circles are values beyond them.</p>
+    </>
   )
 }
 
@@ -198,15 +209,16 @@ interface DescriptiveObservationProps {
   config: DescriptiveConfig | null
   /** The rows of the statistics that are ticked. */
   rows: StatRow[]
-  hasData: boolean
-  /** A dataset is loaded (it may have no numeric variables). */
-  loaded: boolean
   precision: number
   isComputing?: boolean
+  error?: string | null
+  onRetry?: () => void
+  /** Backend warnings, shown under the table they are about. */
+  warnings?: readonly string[]
 }
 
 export default function DescriptiveObservation({
-  result, config, rows: visibleRows, hasData, loaded, precision, isComputing = false,
+  result, config, rows: visibleRows, precision, isComputing = false, error = null, onRetry, warnings = [],
 }: DescriptiveObservationProps) {
   const registry = useChartRegistry(CHART_ORDER)
   const baseName = config ? `descriptive-${config.column}` : 'descriptive-statistics'
@@ -226,35 +238,45 @@ export default function DescriptiveObservation({
       subtitle: `n = ${result.summary.n}`,
       charts: registry.charts,
       stats: [
-        { label: 'Mean', value: String(result.summary.mean) },
-        { label: 'Median', value: String(result.summary.median) },
-        { label: 'Standard deviation', value: String(result.summary.std) },
-        { label: 'IQR', value: String(result.summary.iqr) },
+        { label: 'Mean', value: result.summary.mean },
+        { label: 'Median', value: result.summary.median },
+        { label: 'Standard deviation', value: result.summary.std },
+        { label: 'IQR', value: result.summary.iqr },
       ],
       tables: [{ title: 'Statistics', columns: ['Category', 'Statistic', 'Value', 'Normal-corrected'],
         rows: visibleRows.map((row) => [row.category, row.measure, row.value, row.consistencyCorr]) }],
       filename: exportFilename(`${baseName}-report`, 'pdf', 'descriptive-statistics'),
+      precision,
     })
-  }, [result, config, registry.charts, visibleRows, baseName])
+  }, [result, config, registry.charts, visibleRows, baseName, precision])
   const exportReady = !!result && !!config && !isComputing && registry.ready
 
-  if (!result || !config) return <EmptyState hasData={hasData} loaded={loaded} />
-
   return (
-    <div className="flex flex-col gap-4">
-      <ResultToolbar title={`Descriptive statistics — ${config.column}`}
-        exports={exportReady ? { png: exportPNG, csv: exportCSV, pdf: exportPDF } : undefined}
-        ready={exportReady} disabledReason={isComputing ? 'Waiting for the updated result.' : 'Chart is still loading.'} />
-
-      <ResultSection title="Statistics">
-        <StatsTable rows={visibleRows} showConsistencyCorr={config.showConsistencyCorr} precision={precision} />
-      </ResultSection>
-
-      <ResultSection title="Distribution">
-        <DescriptiveCharts result={result} colName={config.column} precision={precision}
-          onReady={registry.register('descriptive', `Distribution of ${config.column}`)}
-          onPurge={registry.unregister('descriptive')} />
-      </ResultSection>
-    </div>
+    <ResultsFrame title={config ? `Descriptive Statistics · ${config.column}` : 'Descriptive Statistics'} n={result?.summary.n}
+      updating={isComputing} error={error} onRetry={onRetry}
+      exports={exportReady ? { png: exportPNG, csv: exportCSV, pdf: exportPDF } : undefined}
+      exportReady={exportReady} exportReason={isComputing ? 'Waiting for the updated result.' : 'Chart is still loading.'}>
+      {!result || !config ? (
+        isComputing ? <p className="est-note">Computing the statistics…</p> : null
+      ) : (
+        <>
+          <ResultsSection title="Statistics">
+            {visibleRows.length > 0
+              ? <StatsTable rows={visibleRows} showConsistencyCorr={config.showConsistencyCorr} precision={precision} n={result.summary.n} />
+              : <p className="est-note">Tick at least one statistic under What to show.</p>}
+            <Warnings items={warnings} />
+          </ResultsSection>
+          <ResultsSection title="Histogram and box plot">
+            <PlotBox>
+              {(height) => (
+                <DescriptiveCharts result={result} colName={config.column} precision={precision} height={height}
+                  onReady={registry.register('descriptive', `Distribution of ${config.column}`)}
+                  onPurge={registry.unregister('descriptive')} />
+              )}
+            </PlotBox>
+          </ResultsSection>
+        </>
+      )}
+    </ResultsFrame>
   )
 }

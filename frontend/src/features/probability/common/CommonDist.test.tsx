@@ -8,7 +8,6 @@ vi.mock('react-plotly.js/factory', () => ({ default: () => () => null }))
 vi.mock('plotly.js-basic-dist-min', () => ({ default: {} }))
 import CommonDistObservation from './CommonDistObservation'
 import CommonDistControls from './CommonDistControls'
-import CommonDistNotebook from './CommonDistNotebook'
 import katex from 'katex'
 import { DIST_FORMULAS } from './distributionFormulas'
 import { DISTRIBUTIONS } from '../../../hooks/useDistribution'
@@ -34,8 +33,8 @@ function renderControls(query: DistQuery, track = false, distName = 'Poisson', p
   const onQueryChange = vi.fn()
   function Harness() {
     const [current, setCurrent] = useState(query)
-    return <CommonDistControls modelType="discrete" distName={distName} paramValues={paramValues} query={track ? current : query}
-      onModelTypeChange={() => {}} onDistChange={() => {}} onParamChange={() => {}}
+    return <CommonDistControls distName={distName} paramValues={paramValues} query={track ? current : query}
+      onDistChange={() => {}} onParamChange={() => {}}
       onQueryChange={(next) => { onQueryChange(next); setCurrent(next) }} onReset={() => {}} />
   }
   act(() => root.render(<Harness />))
@@ -71,7 +70,9 @@ describe('Probability panels', () => {
   it('left panel holds no result', () => {
     renderControls(params.query)
     expect(container.textContent).not.toContain('P(X')
-    expect(container.querySelectorAll('input[type="radio"]')).toHaveLength(4) // model type, query type
+    expect(container.querySelectorAll('input[type="radio"]')).toHaveLength(2) // query type (the distribution is one select, discrete and continuous together)
+    const groups = [...container.querySelectorAll('select[id] optgroup')].map((group) => group.getAttribute('label'))
+    expect(groups).toEqual(['Continuous', 'Discrete'])
   })
 
   it('Hypergeometric mean and variance put each factor in parentheses', () => {
@@ -140,17 +141,6 @@ describe('Probability panels', () => {
     expect(input('Value (x)').value).toBe('1.0')
   })
 
-  it('notebook explains the distribution and lists each parameter on its own line, without current values', () => {
-    act(() => root.render(<CommonDistNotebook distParams={{ ...params, distName: 'Hypergeometric', paramValues: { N: 50, K: 20, n: 10 } }} />))
-    const titles = [...container.querySelectorAll('h3')].map((heading) => heading.textContent)
-    expect(titles).toEqual(['About', 'Formula'])
-    expect(container.textContent).toContain('without replacement')
-    const items = [...container.querySelectorAll('li')].map((item) => item.textContent)
-    expect(items).toHaveLength(3)
-    expect(items[1]).toContain('number of successes in the population')
-    expect(container.textContent).not.toContain('50')
-  })
-
   it('every distribution has formulas that KaTeX can typeset', () => {
     for (const dist of DISTRIBUTIONS) {
       const formulas = DIST_FORMULAS[dist.name]
@@ -163,10 +153,53 @@ describe('Probability panels', () => {
     }
   })
 
-  it('notebook shows density, mean and variance as typeset math', () => {
-    act(() => root.render(<CommonDistNotebook distParams={params} />))
-    expect(container.querySelectorAll('.katex').length).toBeGreaterThanOrEqual(5)
-    expect(container.textContent).toContain('Mean')
-    expect(container.textContent).toContain('Variance')
+  it('the three steps are all open from the start and named', () => {
+    renderControls(params.query)
+    const titles = [...container.querySelectorAll('h2')].map((heading) => heading.textContent)
+    expect(titles).toEqual(['Distribution', 'Parameters', 'Query'])
+    expect(container.querySelectorAll('.is-locked')).toHaveLength(0)
+  })
+
+  it('every step has an ƒ button that opens only its own formula, typeset', () => {
+    renderControls(params.query)
+    const fx = [...container.querySelectorAll('button.lab-fx')] as HTMLButtonElement[]
+    expect(fx.map((button) => button.getAttribute('aria-label'))).toEqual([
+      'Formula for Poisson distribution', 'Formula for Poisson: parameters', 'Formula for probability query',
+    ])
+    act(() => fx[1].click())
+    const pop = document.body.querySelector('.lab-popover')!
+    expect(pop.querySelectorAll('.katex').length).toBe(1)
+    expect(pop.textContent).toContain('rate: mean number of events per interval')
+    expect(pop.textContent).not.toContain('Poisson distribution')
+    act(() => fx[2].click())
+    expect(document.body.querySelectorAll('.lab-popover')).toHaveLength(1)
+    expect(document.body.querySelector('.lab-popover')!.textContent).toContain('will be added soon')
+    expect(document.body.querySelector('.lab-popover')!.textContent).not.toMatch(/Irving|\.ts/)
+  })
+
+  it('results put the table before the plot, with ƒ on the mean and the variance, and no verdict', () => {
+    act(() => root.render(<CommonDistObservation distParams={params} appliedParams={params} result={result} isLoading={false}
+      error={null} onRetry={() => {}} precision={3} />))
+    const titles = [...container.querySelectorAll('h3')].map((heading) => heading.textContent)
+    expect(titles).toEqual(['Result', 'Mean and variance', 'Probability mass'])
+    expect(container.querySelectorAll('table button.lab-fx')).toHaveLength(2)
+    expect(container.querySelector('.hp-out')!.getAttribute('aria-busy')).toBe('false')
+    expect(container.textContent).not.toMatch(/reject|significant/i)
+  })
+
+  it('while the next result loads the last one stays, dimmed, under "Updating…"', () => {
+    act(() => root.render(<CommonDistObservation distParams={params} appliedParams={params} result={result} isLoading
+      error={null} onRetry={() => {}} precision={3} />))
+    expect(container.querySelector('.hp-out')!.className).toContain('is-updating')
+    expect(container.textContent).toContain('Updating…')
+    expect(container.textContent).toContain('0.616')
+  })
+
+  it('the Mean and Variance table cells follow the distribution', () => {
+    act(() => root.render(<CommonDistObservation distParams={params} appliedParams={params} result={result} isLoading={false}
+      error={null} onRetry={() => {}} precision={3} />))
+    const rows = [...container.querySelectorAll('tbody tr')].map((row) => row.textContent)
+    expect(rows[0]).toContain('1.235')
+    expect(rows[1]).toContain('5')
   })
 })

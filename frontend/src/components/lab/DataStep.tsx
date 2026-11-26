@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { useData } from '../../context/DataContext'
 import { useDrawer } from '../../context/DrawerContext'
+import { datasetTitle } from '../../features/data/ExampleDatasets'
 import FilterChip from './FilterChip'
 import StepBox from './StepBox'
 
@@ -15,7 +16,7 @@ export function DataStep({ children }: { children?: ReactNode } = {}) {
   return (
     <StepBox n={1} title="Data">
       <div className="lab-dataline">
-        <strong>{loaded ? state.filename : 'No data loaded'}</strong>
+        <strong>{loaded ? datasetTitle(state.filename) : 'No data loaded'}</strong>
         <FilterChip />
         <button type="button" className="lab-btn-quiet" onClick={() => setOpen(true)}>
           {loaded ? 'Change' : 'Choose data'}

@@ -2,7 +2,7 @@ import { useId, type ReactNode } from 'react'
 
 export type FieldOption = string | { value: string; label: string; disabled?: boolean }
 
-const fieldClass = `w-full rounded-md px-3 py-2 text-sm bg-[var(--color-bg-input)]
+const fieldClass = `w-full min-h-[var(--control-h)] rounded-md px-3 py-2 text-sm bg-[var(--color-bg-input)]
   border border-[var(--color-border-md)] text-[var(--color-text)]
   focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--color-accent)]
   disabled:cursor-not-allowed disabled:opacity-50`
@@ -24,20 +24,27 @@ export function FieldShell({ id, label, hint, error, children }: {
   )
 }
 
-export function SelectField({ label, value, onChange, options, placeholder, hint, error, disabled }: {
-  label: string; value: string; onChange: (value: string) => void; options: readonly FieldOption[]
+const optionOf = (entry: FieldOption) => typeof entry === 'string' ? { value: entry, label: entry } : entry
+
+export function SelectField({ label, value, onChange, options, groups, placeholder, hint, error, disabled }: {
+  label: string; value: string; onChange: (value: string) => void; options?: readonly FieldOption[]
+  /** The options in labelled groups (optgroup), used instead of `options`. */
+  groups?: readonly { label: string; options: readonly FieldOption[] }[]
   placeholder?: string; hint?: string; error?: string; disabled?: boolean
 }) {
   const id = useId()
+  const renderOption = (entry: FieldOption) => {
+    const option = optionOf(entry)
+    return <option key={option.value} value={option.value} disabled={option.disabled}>{option.label}</option>
+  }
   return (
     <FieldShell id={id} label={label} hint={hint} error={error}>
       <select id={id} value={value} onChange={(event) => onChange(event.target.value)} disabled={disabled}
         aria-invalid={!!error} aria-describedby={descriptions(id, hint, error)} className={fieldClass}>
         {placeholder && <option value="" disabled>{placeholder}</option>}
-        {options.map((entry) => {
-          const option = typeof entry === 'string' ? { value: entry, label: entry } : entry
-          return <option key={option.value} value={option.value} disabled={option.disabled}>{option.label}</option>
-        })}
+        {groups
+          ? groups.map((group) => <optgroup key={group.label} label={group.label}>{group.options.map(renderOption)}</optgroup>)
+          : options?.map(renderOption)}
       </select>
     </FieldShell>
   )

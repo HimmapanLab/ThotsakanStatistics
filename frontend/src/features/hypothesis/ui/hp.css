@@ -1,0 +1,77 @@
+/* Styles for the Hypothesis Testing and Probability pages (step gating, results, ƒ placement). Ported from the
+   approved prototype's kit.css and app.css. Every class starts with hp- so nothing collides with the other
+   pages or with Tailwind. Colours, sizes and motion come from design/tokens.css only. */
+
+/* ── Inputs: the steps stack with room for the rule between them ── */
+.hp-steps { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
+.hp-steps .hp-stack { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+
+/* An ƒ button at the right of a label row (a select: the control stays full width under it). */
+.hp-fxtop { position: relative; }
+.hp-fxtop > .lab-fx { position: absolute; top: -6px; right: 0; }
+/* An ƒ button beside a control that has its own label row (a slider with its value). */
+.hp-fxbeside { display: flex; align-items: flex-start; gap: 8px; }
+.hp-fxbeside > :first-child { flex: 1; min-width: 0; }
+
+/* Radio and checkbox rows, with an ƒ button at the end */
+.hp-opts { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.hp-opts legend { padding: 0; }
+.hp-opt { display: flex; align-items: center; gap: 8px; }
+.hp-opt .hp-check { flex: 1; min-width: 0; }
+.hp-check { display: flex; align-items: flex-start; gap: 10px; min-height: var(--hit-min); padding: 4px 0; cursor: pointer; font-size: 0.9375rem; line-height: 1.5rem; }
+.hp-check input { appearance: none; flex: none; width: 20px; height: 20px; margin: 2px 0 0; border: 1.5px solid var(--line-strong); border-radius: 50%; background: var(--field); cursor: pointer; display: grid; place-content: center; }
+.hp-check input:checked { background: var(--action); border-color: var(--action); }
+.hp-check input:checked::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--action-ink); }
+.hp-check input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.hp-gated .hp-check { color: var(--ink-faint); cursor: not-allowed; }
+.hp-gated .hp-check input { border-color: var(--line); background: var(--inset); cursor: not-allowed; }
+.hp-why { margin: 0 0 4px 30px; font-size: 0.9286rem; color: var(--ink-faint); line-height: 1.43; }
+.hp-why-link { display: inline; padding: 0; border: 0; background: none; font: inherit; color: var(--action); text-decoration: underline; cursor: pointer; }
+.hp-why-link:hover { color: var(--accent-hover); }
+.hp-why-link:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 2px; }
+.hp-note { margin: 0; font-size: 0.9286rem; color: var(--ink-muted); line-height: 1.43; }
+.hp-note.is-warn { color: var(--warn); }
+
+/* ── Results: capped at 960 px; the last result dims, never blanks, while the next one loads ── */
+.hp-out { position: relative; display: flex; flex-direction: column; gap: 24px; width: 100%; max-width: var(--results-max); min-width: 0; }
+.hp-out-body { display: flex; flex-direction: column; gap: 24px; min-width: 0; transition: opacity var(--dur-fast) var(--ease); }
+.hp-out.is-updating .hp-out-body { opacity: 0.5; }
+.hp-updating:empty { position: absolute; width: 1px; height: 1px; overflow: hidden; }
+.hp-updating { margin: 0; min-height: 1.25rem; font-size: 0.9286rem; color: var(--ink-muted); }
+.hp-section { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.hp-section-head { display: flex; align-items: center; gap: 10px; }
+.hp-section-head h3 { flex: 1; font-size: 1.125rem; font-weight: 600; margin: 0; }
+.hp-section > p { margin: 0; }
+.hp-warnings { list-style: none; margin: 0; padding: 12px 14px; border: 1px solid var(--warn); border-radius: var(--radius-sm); background: var(--warn-bg); color: var(--ink); font-size: 0.9375rem; display: flex; flex-direction: column; gap: 4px; }
+
+/* APA tables: three rules only */
+.hp-table-wrap { overflow-x: auto; max-width: 100%; }
+.hp-table { border-collapse: collapse; width: max-content; max-width: 100%; font-size: 1rem; font-variant-numeric: tabular-nums; }
+.hp-table caption { text-align: left; caption-side: top; padding-bottom: 8px; color: var(--ink-muted); font-size: 0.9286rem; }
+.hp-table thead th { border-top: 2px solid var(--ink); border-bottom: 1px solid var(--ink); padding: 8px 12px; text-align: left; font-weight: 600; font-size: 0.9375rem; white-space: nowrap; }
+.hp-table thead th.num, .hp-table td.num { text-align: right; }
+.hp-table td { padding: 7px 12px; vertical-align: baseline; overflow-wrap: anywhere; }
+.hp-table tbody tr:last-child td { border-bottom: 2px solid var(--ink); }
+.hp-table .hp-cell-fx { width: 40px; padding-left: 0; padding-right: 0; text-align: center; }
+.hp-table td.num { white-space: nowrap; overflow-wrap: normal; }
+.hp-table td.mono { font-family: var(--font-mono); }
+.hp-hyps { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 0; }
+.hp-hyps dt { font-weight: 600; }
+.hp-hyps dd { margin: 0; font-family: var(--font-mono); font-size: 0.9375rem; max-width: 70ch; overflow-wrap: anywhere; }
+
+/* The key result of a probability query */
+.hp-keyres { display: inline-flex; flex-direction: column; gap: 4px; padding: 16px 22px; border: 1.5px solid var(--line); border-radius: var(--radius-md); background: var(--field); max-width: 100%; align-self: flex-start; }
+.hp-keyres .hp-keyres-label { color: var(--ink-muted); font-size: 0.9286rem; }
+.hp-keyres .hp-keyres-num { font-size: var(--fs-num-key); line-height: var(--lh-num-key); font-weight: var(--fw-num-key); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+
+/* Plots: laid out for their width, 2:1 between 200 and 480 px */
+.hp-plot { width: 100%; max-width: var(--results-max); min-width: 0; }
+.hp-legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 0.9286rem; color: var(--ink-muted); margin: 0; padding: 0; list-style: none; }
+.hp-legend li { display: inline-flex; align-items: center; gap: 8px; }
+.hp-details summary { cursor: pointer; font-weight: 600; min-height: var(--hit-min); display: flex; align-items: center; }
+.hp-details[open] summary { margin-bottom: 8px; }
+
+/* Query row of the Probability page: x1 < X <= x2 stays on one line down to 320 px */
+.hp-query-row { display: flex; align-items: center; gap: 6px; }
+.hp-err { margin: 4px 0 0; font-size: 0.9286rem; color: var(--error); }
+.hp-meanings { margin: 8px 0 0; padding-left: 18px; font-size: 0.9286rem; color: var(--ink-muted); }

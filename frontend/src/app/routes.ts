@@ -115,7 +115,8 @@ export function useHashRoute(): [Route, (route: Route) => void] {
     if (empty && route !== 'home') replaceHash('#' + route)
   }, [empty, route])
 
-  useEffect(() => { saveRoute(route) }, [route])
+  // The "Coming later" page is not a topic to come back to: Home's "Continue" would only lead there again.
+  useEffect(() => { if (route !== 'regression') saveRoute(route) }, [route])
 
   const setRoute = useCallback((next: Route) => {
     window.location.hash = '#' + next

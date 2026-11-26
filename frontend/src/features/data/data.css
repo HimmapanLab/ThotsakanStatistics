@@ -1,0 +1,147 @@
+/* The Data rail and drawer (features/data). Colours, sizes and motion come from design/tokens.css only; every class
+   is prefixed data- so nothing collides with Tailwind or the old screens. Ported from the approved prototype's
+   kit.css and app.css (rail, drawer, grid, type tag, examples, dropzone). */
+
+/* ── Rail: the whole strip is one tab ─────────────────── */
+.data-rail {
+  position: relative; z-index: 3; flex: none; width: var(--rail-w); min-width: 0; box-sizing: border-box;
+  display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px 0;
+  background: var(--ground); border-right: 1px solid var(--line);
+  cursor: pointer; transition: box-shadow var(--dur-fast);
+}
+.data-rail:hover { box-shadow: inset 0 0 0 100vmax var(--hover-overlay); }
+.data-rail-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; width: calc(var(--rail-w) - 8px); min-height: 44px;
+  padding: 8px 0; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--ink);
+  font: inherit; font-size: 0.875rem; font-weight: 600; cursor: pointer; touch-action: pan-y;
+}
+.data-rail-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.data-rail-vert {
+  writing-mode: vertical-rl; transform: rotate(180deg); font-size: 0.9286rem; font-weight: 500; color: var(--ink-muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; min-height: 0; max-height: 100%;
+}
+.data-rail:hover .data-rail-vert { color: var(--ink); }
+/* open: the whole strip is the selected tab, solid blue with white text, not just its button */
+.data-rail.is-open { background: var(--action); border-right-color: var(--action); }
+.data-rail.is-open .data-rail-btn, .data-rail.is-open .data-rail-vert, .data-rail.is-open:hover .data-rail-vert { color: var(--action-ink); }
+.data-rail.is-open .data-rail-btn:focus-visible { outline-color: var(--action-ink); }
+/* A page that needs no data (Probability): the tab is greyed out at 40 %, as Figma's Rail button State=Disabled.
+   The dataset line keeps its colour, so the loaded data stays readable. */
+.data-rail.is-disabled { cursor: default; }
+.data-rail.is-disabled:hover { box-shadow: none; }
+.data-rail.is-disabled .data-rail-btn { opacity: 0.4; cursor: not-allowed; }
+.data-rail.is-disabled:hover .data-rail-vert { color: var(--ink-muted); }
+
+/* ── Drawer ───────────────────────────────────────────── */
+.data-drawer {
+  /* Fills the bench's Data column, whose width the reader sets with the splitter (LabBench); that column draws the
+     right edge, so the drawer draws none of its own. */
+  flex: 1 1 auto; width: 100%; min-width: 0; box-sizing: border-box;
+  display: flex; flex-direction: column; overflow: hidden;
+  background: var(--surface);
+  /* unrolls from the rail edge in place, over 240 ms with the shared easing */
+  animation: data-drawer-in var(--dur) var(--ease);
+}
+@keyframes data-drawer-in { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+.data-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 16px 16px 12px; border-bottom: 1px solid var(--line); }
+.data-head h2 { margin: 0; font-size: 1.125rem; font-weight: 600; flex: 1; }
+.data-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.data-tools .lab-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.data-extra { padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.data-note { margin: 0; padding: 10px 16px; font-size: 0.9286rem; color: var(--ink-muted); border-bottom: 1px solid var(--line); }
+.data-note-error { color: var(--error); background: var(--error-bg); }
+.data-error { margin: 8px 0 0; font-size: 0.9286rem; color: var(--error); }
+.data-empty { padding: 24px 16px; }
+.data-empty h3 { margin: 0 0 6px; font-size: 1.125rem; font-weight: 600; }
+.data-empty p { margin: 0; color: var(--ink-muted); }
+.data-foot { margin: 0; padding: 10px 16px; border-top: 1px solid var(--line); font-size: 0.9286rem; color: var(--ink-muted); }
+
+/* ── Examples and the drop zone ───────────────────────── */
+.data-examples { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.data-example {
+  display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; align-items: baseline; text-align: left; width: 100%;
+  padding: 12px 14px; border-radius: var(--radius-md); border: 1.5px solid var(--line); background: var(--surface);
+  font: inherit; color: var(--ink); cursor: pointer;
+}
+.data-example:hover { border-color: var(--line-strong); background: var(--row-tint); }
+.data-example[aria-pressed="true"] { border-color: var(--action); box-shadow: 0 0 0 1px var(--action); }
+.data-example-name { font-weight: 600; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.data-example-default { font-size: 0.875rem; font-weight: 500; padding: 0 8px; border-radius: var(--radius-pill); border: 1px solid var(--q-data); background: var(--q-data-fill); color: var(--accent); }
+.data-example-meta { font-family: var(--font-mono); font-size: 0.9286rem; color: var(--ink-muted); white-space: nowrap; }
+.data-example-desc { grid-column: 1 / -1; font-size: 0.9286rem; color: var(--ink-muted); }
+.data-examples-card { border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); }
+.data-examples-toggle { display: flex; width: 100%; justify-content: space-between; gap: 8px; padding: 12px 16px; border: 0; background: transparent; font: inherit; font-weight: 600; color: var(--ink); cursor: pointer; }
+.data-dropzone { border: 1.5px dashed var(--line-strong); border-radius: var(--radius-md); padding: 16px; text-align: center; color: var(--ink-muted); font-size: 0.9375rem; background: var(--inset); }
+.data-dropzone.is-over { border-color: var(--action); background: var(--q-data-fill); }
+
+/* ── The grid ─────────────────────────────────────────── */
+.data-body { overflow: auto; flex: 0 1 auto; min-height: 0; }
+.data-body:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.data-grid { border-collapse: separate; border-spacing: 0; font-family: var(--font-mono); font-size: 0.9286rem; width: max-content; min-width: 100%; }
+.data-grid th {
+  position: sticky; top: 0; z-index: 1; min-width: 72px; max-width: 320px; background: var(--inset); text-align: left;
+  font-family: var(--font-ui); font-weight: 600; font-size: 0.9286rem; padding: 8px 10px; border-bottom: 1px solid var(--line-strong);
+  white-space: nowrap; vertical-align: top;
+}
+.data-th-name { display: flex; align-items: center; gap: 6px; max-width: 100%; min-height: var(--hit-min); border: 0; background: transparent; font: inherit; color: inherit; cursor: pointer; padding: 0; margin-bottom: 4px; }
+.data-th-name:hover { color: var(--accent); }
+.data-ellipsis { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.data-grid td { padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; max-width: 320px; overflow: hidden; text-overflow: ellipsis; }
+.data-grid td.is-num { text-align: right; }
+.data-grid tbody tr:nth-child(even) td { background: var(--inset); }
+.data-grid td.data-rownum, .data-grid th.data-rownum { color: var(--ink-muted); text-align: right; font-family: var(--font-ui); position: sticky; left: 0; background: var(--inset); min-width: 0; width: 48px; }
+.data-grid th.data-rownum { z-index: 3; }
+.data-grid td.data-rownum { z-index: 1; }
+
+/* ── Column type tags and the menu ────────────────────── */
+.data-type-tag {
+  display: inline-flex; align-items: center; gap: 6px; max-width: 100%; min-height: var(--hit-min); padding: 2px 8px 2px 4px;
+  border-radius: var(--radius-pill); border: 1px solid var(--line-strong); background: var(--field);
+  font-family: var(--font-ui); font-size: 0.875rem; font-weight: 500; color: var(--ink); cursor: pointer; white-space: nowrap;
+}
+.data-type-tag:hover { background: var(--row-tint); }
+.data-type-ico { width: 18px; height: 18px; display: inline-grid; place-content: center; flex: none; color: var(--ink); }
+.data-type-ico svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.data-typemenu { display: flex; flex-direction: column; gap: 6px; }
+.data-typeopt {
+  display: flex; gap: 10px; align-items: flex-start; text-align: left; padding: 8px 10px; border: 1.5px solid var(--line);
+  border-radius: var(--radius-sm); background: var(--field); font: inherit; color: var(--ink); cursor: pointer;
+}
+.data-typeopt:hover { background: var(--row-tint); border-color: var(--line-strong); }
+.data-typeopt[aria-pressed="true"] { border-color: var(--action); box-shadow: 0 0 0 1px var(--action); }
+.data-typeopt .data-type-ico { margin-top: 2px; }
+.data-typeopt span span { display: block; }
+.data-typeopt-hint { font-size: 0.9286rem; color: var(--ink-muted); }
+/* A type the values do not fit: greyed, with the reason in plain text (kept readable: contrast stays above 4.5:1). */
+.data-typeopt[aria-disabled="true"] { background: var(--inset); border-style: dashed; color: var(--ink-faint); cursor: not-allowed; }
+.data-typeopt[aria-disabled="true"]:hover { background: var(--inset); border-color: var(--line); }
+.data-typeopt[aria-disabled="true"] strong, .data-typeopt[aria-disabled="true"] .data-typeopt-hint { color: var(--ink-faint); }
+.data-typeopt-reason { margin-top: 2px; font-size: 0.9286rem; font-weight: 600; color: var(--warn); }
+.data-popover { width: min(440px, calc(100vw - 32px)); }
+.data-type-intro { margin: 0 0 12px; }
+
+/* ── Filter ───────────────────────────────────────────── */
+.data-filter { display: flex; flex-direction: column; gap: 4px; }
+.data-label { font-size: 0.9286rem; font-weight: 500; margin-top: 8px; }
+.data-select {
+  min-height: var(--control-h); padding: 0 8px; border: 1.5px solid var(--line-strong); border-radius: var(--radius-sm);
+  background: var(--field); color: var(--ink); font: inherit; font-size: 0.9375rem; max-width: 100%;
+}
+.data-select:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.data-filter-actions { display: flex; gap: 8px; margin-top: 16px; }
+.data-btn-primary { background: var(--action); border-color: var(--action); color: var(--action-ink); }
+.data-btn-primary:hover { background: var(--accent-hover); }
+
+/* ── Narrow screens: the rail becomes a strip above the drawer ── */
+@media (max-width: 760px) {
+  .data-rail { width: auto; flex-direction: row; justify-content: flex-start; padding: 8px 16px; border-right: 0; border-bottom: 1px solid var(--line); }
+  .data-rail.is-open { border-bottom-color: var(--action); }
+  .data-rail-btn { width: auto; flex-direction: row; padding: 4px 12px 4px 8px; }
+  .data-rail-vert { writing-mode: horizontal-tb; transform: none; max-height: none; max-width: 100%; min-width: 0; flex: 1 1 0; }
+  .data-drawer { flex: 1 1 auto; width: 100%; border-right: 0; border-bottom: 1px solid var(--line); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .data-drawer { animation: none; }
+  .data-rail { transition: none; }
+}

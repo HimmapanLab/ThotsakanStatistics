@@ -1,192 +1,117 @@
 /**
- * Home / landing page — full-width welcome page that fills all 3 LabBench slots.
- * Mirrors the Python app's Home tab: hero, vision, product cards, affiliations.
+ * The front page: the name, one line about the loaded data, a peek carousel of the four topics, and the partner
+ * logos. It never moves on its own. The wording of the topics is in content/topics.ts.
+ * REBUILD-HANDOFF rows 9 and 10.
  */
-
-import type { Route } from '../../app/routes'
+import { useCallback, useState } from 'react'
+import { ROUTES, type Route } from '../../app/routes'
+import { APP_NAME, ROUTE_NAMES, type TopicSlide } from '../../content/topics'
+import { useData } from '../../context/DataContext'
+import { useDrawer } from '../../context/DrawerContext'
+import { formatCount } from '../../utils/formatNumber'
+import TopicCarousel from './TopicCarousel'
+import { useLoadedHistogram } from './useLoadedHistogram'
+import './home.css'
 
 interface HomeTabProps {
   onNavigate: (route: Route) => void
 }
 
-// ── Product cards ────────────────────────────────────────────────────────────
+/** The page the reader was last on. The route store keeps only the current page, so Home keeps its own copy. */
+const LAST_KEY = 'tsl.home.last'
 
-const PRODUCTS = [
-  {
-    logo: '/logos/ThotsakanStats.png',
-    name: 'Thotsakan Statistics',
-    tagline: 'Probability & Statistics Interactive Laboratory',
-    description:
-      'Explore data, test ideas, and connect statistical theory with computational experimentation.',
-    status: 'active' as const,
-    tab: 'probability' as Route,
-    repo: 'https://github.com/IrvingGomez/ThotsakanStatistics',
-  },
-  {
-    logo: '/logos/MaiyarapEq.png',
-    name: 'Maiyarap Equations',
-    tagline: 'Differential Equations Interactive Laboratory',
-    description:
-      'Explore dynamic systems, visualize solutions, and connect mathematical models with computational experimentation.',
-    status: 'coming-soon' as const,
-    tab: null,
-    repo: null,
-  },
-]
+function readKey(key: string): string | null {
+  try { return localStorage.getItem(key) } catch { return null }
+}
 
-const FEATURES: { tab: Route; icon: string; label: string; desc: string }[] = [
-  { tab: 'probability', icon: '🎲', label: 'Probability',       desc: 'Explore distributions and model randomness' },
-  { tab: 'statistics-graphical', icon: '📐', label: 'Statistics',        desc: 'Summarize data and quantify uncertainty' },
-  { tab: 'hypothesis',  icon: '🧪', label: 'Hypothesis Testing', desc: 'Evaluate claims and compare groups' },
-  { tab: 'regression',  icon: '📈', label: 'Linear Regression',  desc: 'Model relationships and interpret evidence' },
-]
+function isTopic(value: string | null): value is Route {
+  return !!value && value !== 'home' && (ROUTES as readonly string[]).includes(value)
+}
 
-const AFFILIATIONS = [
-  { logo: '/logos/HimmapanLab.png', name: 'Himmapan Lab', size: 'h-14' },
-  { logo: '/logos/CmklLogo.png',    name: 'CMKL University', size: 'h-12' },
-  { logo: '/logos/AiceLogo.png',    name: 'AICE',           size: 'h-12' },
-]
+function lastTopic(): Route | null {
+  // The route store writes 'home' once this page shows, but not before this first render: read the page before it.
+  const route = readKey('tsl.route')
+  if (isTopic(route)) {
+    try { localStorage.setItem(LAST_KEY, route) } catch { /* not remembered */ }
+    return route
+  }
+  const own = readKey(LAST_KEY)
+  return isTopic(own) ? own : null
+}
 
-// ── Component ────────────────────────────────────────────────────────────────
+const CheckIcon = () => (
+  <svg className="hm-icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M4 10.5l4 4 8-9" /></svg>
+)
 
 export default function HomeTab({ onNavigate }: HomeTabProps) {
+  const { state, restoring } = useData()
+  const drawer = useDrawer()
+  const histogram = useLoadedHistogram()
+  const [last] = useState(lastTopic)
+
+  const dataset = state.dataset
+  const hasNumeric = state.numericCols.length > 0
+  const hasGroups = state.categoricalCols.length > 0
+
+  /** What a slide says about the loaded data: a short line, kept honest by what the columns allow. */
+  const fitFor = useCallback((slide: TopicSlide) => {
+    if (slide.kind === 'prob') return <span className="ct-fit none">Works without data</span>
+    if (!dataset) return <span className="ct-fit no">Needs data</span>
+    if (!hasNumeric) return <span className="ct-fit no">No Continuous column in this data</span>
+    if (slide.kind === 'stats' || hasGroups) return <span className="ct-fit yes"><CheckIcon />{state.filename} fits</span>
+    return <span className="ct-fit yes"><CheckIcon />Fits the one-sample tests</span>
+  }, [dataset, hasNumeric, hasGroups, state.filename])
+
+  // Data lives in the drawer of the topic pages, so Change data opens a topic page with the drawer open.
+  const openData = () => {
+    drawer.setOpen(true)
+    onNavigate('statistics-graphical')
+  }
+
   return (
-    <div className="flex-1 overflow-y-auto px-6 py-8">
-      <div className="max-w-4xl mx-auto flex flex-col gap-10">
-
-        {/* ── HERO ─────────────────────────────────────────── */}
-        <section className="text-center flex flex-col items-center gap-4">
-          <img
-            src="/logos/HimmapanLab.png"
-            alt="Himmapan Lab"
-            className="h-24 w-auto object-contain drop-shadow-lg"
-            draggable={false}
-          />
-          <h1 className="text-3xl font-bold tracking-tight text-[var(--color-text)]">
-            Welcome to Himmapan Lab
-          </h1>
-          <p className="text-base text-[var(--color-text-muted)] max-w-xl leading-relaxed italic">
-            Interactive mathematical tools built by students, for students.
-          </p>
-        </section>
-
-        {/* ── VISION ───────────────────────────────────────── */}
-        <section className="rounded-xl p-6 bg-[var(--color-bg-panel)] border border-[var(--color-border)]">
-          <h2 className="text-lg font-semibold text-[var(--color-accent)] mb-4">Our Vision</h2>
-          <ul className="flex flex-col gap-2.5 text-sm text-[var(--color-text-muted)] leading-relaxed">
-            <li className="flex gap-2">
-              <span className="text-[var(--color-accent)]">▸</span>
-              <span><strong className="text-[var(--color-text)]">Teach with interaction:</strong> turn abstract concepts into experiments you can run.</span>
-            </li>
-            <li className="flex gap-2">
-              <span className="text-[var(--color-accent)]">▸</span>
-              <span><strong className="text-[var(--color-text)]">Be transparent:</strong> methods are implemented clearly so students can learn from the code.</span>
-            </li>
-            <li className="flex gap-2">
-              <span className="text-[var(--color-accent)]">▸</span>
-              <span><strong className="text-[var(--color-text)]">Grow an ecosystem:</strong> build multiple apps under one consistent engineering framework.</span>
-            </li>
-          </ul>
-        </section>
-
-        {/* ── PRODUCTS ─────────────────────────────────────── */}
-        <section>
-          <h2 className="text-lg font-semibold text-[var(--color-text)] mb-4">Products</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {PRODUCTS.map((product) => (
-              <button
-                key={product.name}
-                type="button"
-                disabled={product.status === 'coming-soon'}
-                onClick={() => product.tab && onNavigate(product.tab)}
-                className={`group rounded-xl p-5 text-left flex flex-col gap-3
-                  bg-[var(--color-bg-panel)] border border-[var(--color-border)]
-                  transition-all cursor-pointer
-                  ${product.status === 'active'
-                    ? 'hover:border-[var(--color-accent)] hover:shadow-[var(--shadow-pop)]'
-                    : 'opacity-60 cursor-not-allowed'
-                  }`}
-              >
-                <img
-                  src={product.logo}
-                  alt={product.name}
-                  className="h-16 w-auto object-contain self-center"
-                  draggable={false}
-                />
-                <h3 className="text-base font-semibold text-[var(--color-text)]">
-                  {product.name}
-                </h3>
-                <p className="text-xs font-medium text-[var(--color-accent)]">{product.tagline}</p>
-                <p className="text-xs text-[var(--color-text-muted)] leading-relaxed">
-                  {product.description}
-                </p>
-                {product.status === 'coming-soon' && (
-                  <span className="text-xs uppercase tracking-widest text-[var(--warn)] font-semibold">
-                    Coming soon
-                  </span>
-                )}
-                {product.repo && (
-                  <a
-                    href={product.repo}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    className="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-accent)] underline"
-                  >
-                    GitHub Repository →
-                  </a>
-                )}
-              </button>
-            ))}
+    <div className="hm-page">
+      <main className="hm" aria-label={APP_NAME}>
+        <header className="hm-brand">
+          <img className="hm-mask" src="/home/thotsakan-mask-640.webp" alt="" draggable={false} />
+          <div className="hm-id">
+            <h1 tabIndex={-1}>{APP_NAME}</h1>
+            <p className="hm-promise">Pick a topic. Every number comes with its formula.</p>
+            <p className="hm-data">
+              {restoring
+                ? <span>Bringing back your data…</span>
+                : dataset
+                  ? <span>Data: <strong>{state.filename}</strong> · {formatCount(dataset.rows.length)} rows × {formatCount(dataset.headers.length)} columns</span>
+                  : <span>No data loaded.</span>}
+              <button type="button" className="hm-btn hm-btn-quiet" onClick={openData}>{dataset ? 'Change data' : 'Load data'}</button>
+              {last && (
+                <a
+                  className="hm-btn hm-btn-quiet"
+                  href={`#${last}`}
+                  onClick={(event) => {
+                    if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return
+                    event.preventDefault()
+                    onNavigate(last)
+                  }}
+                >
+                  Continue: {ROUTE_NAMES[last]}
+                </a>
+              )}
+            </p>
           </div>
-        </section>
+        </header>
 
-        {/* ── QUICK START ──────────────────────────────────── */}
-        <section className="rounded-xl p-6 bg-[var(--color-bg-panel)] border border-[var(--color-border)]">
-          <h2 className="text-lg font-semibold text-[var(--color-text)] mb-4">
-            About this Application
-          </h2>
-          <p className="text-sm text-[var(--color-text-muted)] mb-4">
-            Use the tabs at the top to explore:
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            {FEATURES.map((f) => (
-              <button
-                key={f.tab}
-                type="button"
-                onClick={() => onNavigate(f.tab)}
-                className="flex items-start gap-2.5 rounded-lg p-3 text-left
-                  hover:bg-[var(--hover-overlay)] transition-colors cursor-pointer"
-              >
-                <span className="text-lg mt-0.5">{f.icon}</span>
-                <div>
-                  <p className="text-sm font-medium text-[var(--color-text)]">{f.label}</p>
-                  <p className="text-xs text-[var(--color-text-muted)] leading-relaxed">{f.desc}</p>
-                </div>
-              </button>
-            ))}
-          </div>
-        </section>
+        <TopicCarousel onNavigate={onNavigate} fitFor={fitFor} histogram={histogram} />
 
-        {/* ── AFFILIATIONS ─────────────────────────────────── */}
-        <section className="flex flex-col items-center gap-4 pt-4 border-t border-[var(--color-border)]">
-          <div className="flex items-center gap-8">
-            {AFFILIATIONS.map((a) => (
-              <img
-                key={a.name}
-                src={a.logo}
-                alt={a.name}
-                className={`${a.size} w-auto object-contain opacity-60 hover:opacity-90 transition-opacity`}
-                draggable={false}
-              />
-            ))}
-          </div>
-          <p className="text-xs text-[var(--color-text-muted)] opacity-75">
-            Built under <strong>Himmapan Lab</strong> for engineering education.
-          </p>
-        </section>
-
-      </div>
+        <div className="hm-logos">
+          <img src="/home/himmapan-112.png" alt="Himmapan" />
+          <img src="/home/cmkl-96.png" alt="CMKL" />
+          <img src="/home/aice-96.png" alt="AICE" />
+          <span className="hm-sibling">
+            <img src="/home/maiyarap-192.webp" alt="Maiyarap Equations" />
+            <span>Sibling product: Maiyarap Equations (coming soon)</span>
+          </span>
+        </div>
+      </main>
     </div>
   )
 }

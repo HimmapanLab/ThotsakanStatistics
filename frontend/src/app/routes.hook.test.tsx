@@ -56,6 +56,15 @@ describe('useHashRoute', () => {
     expect(window.location.hash).toBe('#statistics-descriptive')
   })
 
+  it('does not remember the Coming later page as the last page', async () => {
+    window.location.hash = '#hypothesis'
+    act(() => root.render(<Probe />))
+    act(() => setRoute('regression'))
+    await hashChanged()
+    expect(route).toBe('regression')
+    expect(localStorage.getItem(ROUTE_KEY)).toBe('hypothesis')
+  })
+
   it('lets a link win over the remembered page', () => {
     localStorage.setItem(ROUTE_KEY, 'statistics-descriptive')
     window.location.hash = '#regression'
