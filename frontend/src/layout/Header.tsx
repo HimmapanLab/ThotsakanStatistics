@@ -11,7 +11,7 @@ export const MENU_OPEN_DELAY = 120
 /** How long the menu stays open after the pointer leaves, so a wobbly move does not close it. */
 export const MENU_CLOSE_DELAY = 300
 
-const LEVELS = ['tb-c-icons', 'tb-c-brand', 'tb-c-topics']
+const LEVELS = ['tb-c-icons', 'tb-c-brand', 'tb-c-topics', 'tb-c-gutter']
 
 function setLevel(bar: HTMLElement, n: number) {
   LEVELS.forEach((name, i) => bar.classList.toggle(name, i < n))
