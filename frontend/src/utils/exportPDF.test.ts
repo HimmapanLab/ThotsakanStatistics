@@ -50,6 +50,7 @@ describe('PDF export contract', () => {
       stats: [{ label: 'α', value: 'μ and σ' }],
       tables: [{ title: 'Rows', columns: ['index', 'value'], rows }],
       filename: 'report.pdf',
+      precision: 4,
     })
 
     const doc = mocks.documents[0]
@@ -63,8 +64,23 @@ describe('PDF export contract', () => {
     expect(doc.saved).toBe('report.pdf')
   })
 
+  it('rounds every number as the screen does, and marks a missing value', async () => {
+    mocks.toImage.mockResolvedValue('data:image/png;base64,chart')
+    const chart = document.createElement('div')
+    document.body.appendChild(chart)
+    await downloadPDF({
+      title: 'Report', charts: [{ element: chart, title: 'Chart' }], filename: 'report.pdf', precision: 3,
+      stats: [{ label: 'Mean', value: 3.14159265 }, { label: 'P-value', value: 0.0000123 }],
+      tables: [{ title: 'Values', columns: ['Statistic', 'Value'], rows: [['Std', 1.41421356], ['Skew', null]] }],
+    })
+    const texts = mocks.documents[0].texts
+    expect(texts).toEqual(expect.arrayContaining(['3.142', '1.23e-5', '1.414', '-']))
+    expect(texts.join(' ')).not.toContain('3.14159')
+    expect(texts.join(' ')).not.toContain('?')
+  })
+
   it('fails visibly when a required chart is missing', async () => {
-    await expect(downloadPDF({ title: 'Report', charts: [], filename: 'report.pdf' }))
+    await expect(downloadPDF({ title: 'Report', charts: [], filename: 'report.pdf', precision: 4 }))
       .rejects.toThrow('Charts are still loading')
   })
 })

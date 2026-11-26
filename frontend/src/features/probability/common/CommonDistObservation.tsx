@@ -178,6 +178,7 @@ export default function CommonDistObservation({ distParams, appliedParams, resul
         ...Object.entries(paramValues).map(([k, v]) => ({ label: k, value: String(v) })),
       ],
       filename: exportFilename(`${baseName}-report`, 'pdf', 'distribution'),
+      precision,
     })
   }, [distName, dist, probabilityLabel, result, paramValues, baseName, registry.charts, precision])
 

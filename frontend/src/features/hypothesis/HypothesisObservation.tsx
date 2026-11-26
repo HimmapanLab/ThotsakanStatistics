@@ -214,12 +214,13 @@ export default function HypothesisObservation({
       subtitle: `${result.h0} vs ${result.h1}`,
       charts: registry.charts,
       stats: [
-        { label: 'Alpha', value: formatNumber(result.alpha, precision) },
-        { label: 'Statistic', value: String(result.statistic) },
-        { label: 'P-value', value: String(result.p_value) },
-        { label: 'Critical values', value: region.critical_values.join(', ') },
+        { label: 'Alpha', value: result.alpha },
+        { label: 'Statistic', value: result.statistic },
+        { label: 'P-value', value: result.p_value },
+        { label: 'Critical values', value: region.critical_values.map((value) => formatNumber(value, precision)).join(', ') },
       ],
       filename: exportFilename(`${baseName}-report`, 'pdf', 'hypothesis'),
+      precision,
     }),
   } : undefined;
 

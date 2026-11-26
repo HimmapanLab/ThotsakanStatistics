@@ -184,6 +184,7 @@ export default function GraphicalObservation({
       subtitle: graphType,
       stats,
       filename: exportFilename(`graphical-${column}-${graphType}-report`, 'pdf', 'graphical-analysis'),
+      precision,
     })
   }, [result, column, graphType, registry.charts, precision])
 

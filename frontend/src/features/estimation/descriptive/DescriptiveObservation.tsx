@@ -238,16 +238,17 @@ export default function DescriptiveObservation({
       subtitle: `n = ${result.summary.n}`,
       charts: registry.charts,
       stats: [
-        { label: 'Mean', value: String(result.summary.mean) },
-        { label: 'Median', value: String(result.summary.median) },
-        { label: 'Standard deviation', value: String(result.summary.std) },
-        { label: 'IQR', value: String(result.summary.iqr) },
+        { label: 'Mean', value: result.summary.mean },
+        { label: 'Median', value: result.summary.median },
+        { label: 'Standard deviation', value: result.summary.std },
+        { label: 'IQR', value: result.summary.iqr },
       ],
       tables: [{ title: 'Statistics', columns: ['Category', 'Statistic', 'Value', 'Normal-corrected'],
         rows: visibleRows.map((row) => [row.category, row.measure, row.value, row.consistencyCorr]) }],
       filename: exportFilename(`${baseName}-report`, 'pdf', 'descriptive-statistics'),
+      precision,
     })
-  }, [result, config, registry.charts, visibleRows, baseName])
+  }, [result, config, registry.charts, visibleRows, baseName, precision])
   const exportReady = !!result && !!config && !isComputing && registry.ready
 
   return (

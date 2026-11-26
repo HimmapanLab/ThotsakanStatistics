@@ -285,11 +285,12 @@ export default function InferenceObservation({ state }: { state: InferenceState 
       charts: registry.charts,
       stats: [
         { label: 'Variable', value: variable },
-        { label: 'Alpha', value: String(state.appliedConfig?.alpha ?? '') },
+        { label: 'Alpha', value: state.appliedConfig?.alpha },
         ...(state.partialResult ? [{ label: 'Partial result', value: state.error ?? 'One requested section failed.' }] : []),
       ],
       tables: intervalRows.length ? [{ title: 'Intervals', columns: ['Type', 'Statistic', 'Method', 'Lower', 'Upper'], rows: intervalRows }] : [],
       filename: exportFilename(`${baseName}-report`, 'pdf', 'inference'),
+      precision: state.precision,
     })
   }
   const exportReady = hasResult && !state.isComputing && registry.ready
