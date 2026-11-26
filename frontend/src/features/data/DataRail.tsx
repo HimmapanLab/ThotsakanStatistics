@@ -13,7 +13,8 @@ export function railLabel(filename: string | null, rows: number | null): string 
   return filename && rows !== null ? `${datasetTitle(filename)} · ${rows.toLocaleString('en-US')} rows` : 'No data'
 }
 
-export default function DataRail() {
+/** `disabled`: the page needs no data (Probability). The tab is greyed out; the dataset line stays as it is. */
+export default function DataRail({ disabled = false }: { disabled?: boolean } = {}) {
   const { open, toggle } = useDrawer()
   const { state } = useData()
   const buttonRef = useRef<HTMLButtonElement>(null)
@@ -46,14 +47,17 @@ export default function DataRail() {
   }, [state.status, state.dataset])
 
   return (
-    <aside className={`data-rail${open ? ' is-open' : ''}`} aria-label="Data" onClick={toggle}>
+    <aside className={`data-rail${open ? ' is-open' : ''}${disabled ? ' is-disabled' : ''}`} aria-label="Data"
+      onClick={disabled ? undefined : toggle}>
       <button
         ref={buttonRef}
         type="button"
         className="data-rail-btn"
-        aria-expanded={open}
-        aria-controls="data-panel"
-        aria-label="Data"
+        aria-expanded={disabled ? undefined : open}
+        aria-controls={disabled ? undefined : 'data-panel'}
+        aria-disabled={disabled || undefined}
+        aria-label={disabled ? 'Data (Probability needs no data)' : 'Data'}
+        title={disabled ? 'Probability needs no data' : undefined}
       >
         <TableIcon />
         <span>Data</span>

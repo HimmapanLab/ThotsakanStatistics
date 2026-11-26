@@ -1,11 +1,13 @@
 // The bench of every topic page: the page head, then the Data rail, the inputs (or the Data drawer, which takes
 // their place while it is open) and the results. Prototype: benchWrap, plan() and the stacking at 760 px.
-import { type ReactNode, useEffect, useRef } from 'react'
+import { type CSSProperties, type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import type { Route } from '../app/routes'
 import { useDrawer } from '../context/DrawerContext'
 import DataDrawer from '../features/data/DataDrawer'
 import DataRail from '../features/data/DataRail'
 import PageHead from './PageHead'
+import Splitter from './Splitter'
+import { PANEL_LIMITS, RESULTS_MIN_REM, clampWidth, loadWidths, panelRange, saveWidths, type PanelKind, type PanelWidths } from './benchLayout'
 
 interface LabBenchProps {
   route: Route
@@ -20,6 +22,43 @@ export default function LabBench({ route, controls, observation }: LabBenchProps
   const outputRef = useRef<HTMLElement | null>(null)
   const railRef = useRef<HTMLDivElement | null>(null)
   const wasOpen = useRef(open)
+  const benchRef = useRef<HTMLDivElement | null>(null)
+  // Probability needs no data: its Data tab is greyed out, and Data never stays open there.
+  const dataOff = route === 'probability'
+
+  // ── Resizable panels ────────────────────────────────────────────────────
+  // The reader's widths (saved), and the room the bench has now. The room is measured, so the limits follow the
+  // window and the text size; stacked phones (one column) have no handle.
+  const [widths, setWidths] = useState<PanelWidths>(loadWidths)
+  const [room, setRoom] = useState<{ width: number; resultsMin: number; stacked: boolean }>({ width: 0, resultsMin: 420, stacked: false })
+  useEffect(() => {
+    const bench = benchRef.current
+    if (!bench || typeof ResizeObserver === 'undefined') return
+    const measure = () => {
+      const rail = bench.querySelector<HTMLElement>('.bench-rail')
+      const rootPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 14
+      const stacked = window.matchMedia?.('(max-width: 760px)').matches ?? false
+      setRoom({ width: bench.clientWidth - (rail?.offsetWidth ?? 48), resultsMin: Math.round(RESULTS_MIN_REM * rootPx), stacked })
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(bench)
+    return () => observer.disconnect()
+  }, [])
+  const kind: PanelKind = open ? 'drawer' : 'inputs'
+  const width = room.width ? clampWidth(kind, widths[kind], room.width, room.resultsMin) : widths[kind]
+  const range = room.width ? panelRange(kind, room.width, room.resultsMin) : PANEL_LIMITS[kind]
+  const resize = useCallback((next: number) => setWidths((current) => ({ ...current, [kind]: next })), [kind])
+  const commit = useCallback((next: number) => setWidths((current) => {
+    const saved = { ...current, [kind]: next }
+    saveWidths(saved)
+    return saved
+  }), [kind])
+  const reset = useCallback(() => commit(PANEL_LIMITS[kind].def), [commit, kind])
+
+  useEffect(() => {
+    if (dataOff && open) setOpen(false)
+  }, [dataOff, open, setOpen])
 
   // Plotly listens to the window's resize, while the results change width when Data opens. Tell it, without
   // remounting charts or their settings.
@@ -57,9 +96,10 @@ export default function LabBench({ route, controls, observation }: LabBenchProps
   return (
     <div className="shell-bench">
       <PageHead route={route} />
-      <div className={`bench${open ? ' is-drawer' : ''}`} data-route={route}>
+      <div className={`bench${open ? ' is-drawer' : ''}`} data-route={route} ref={benchRef}
+        style={{ '--panel-w': `${width}px` } as CSSProperties}>
         <div className="bench-rail" ref={railRef} data-tour="data">
-          <DataRail />
+          <DataRail disabled={dataOff} />
         </div>
         {open && (
           <div className="bench-drawer slide-in">
@@ -69,6 +109,10 @@ export default function LabBench({ route, controls, observation }: LabBenchProps
         <section id="inputs-panel" className="bench-inputs" aria-label="Inputs" data-tour="inputs" hidden={open}>
           {controls}
         </section>
+        {!room.stacked && (
+          <Splitter name={open ? 'Data' : 'Inputs'} controls={open ? 'data-panel' : 'inputs-panel'}
+            width={width} min={range.min} max={range.max} onResize={resize} onCommit={commit} onReset={reset} />
+        )}
         <main id="main" className="bench-output" aria-label="Results" ref={outputRef}>
           {observation}
         </main>

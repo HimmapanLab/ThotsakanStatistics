@@ -25,6 +25,12 @@
 .data-rail.is-open { background: var(--action); border-right-color: var(--action); }
 .data-rail.is-open .data-rail-btn, .data-rail.is-open .data-rail-vert, .data-rail.is-open:hover .data-rail-vert { color: var(--action-ink); }
 .data-rail.is-open .data-rail-btn:focus-visible { outline-color: var(--action-ink); }
+/* A page that needs no data (Probability): the tab is greyed out at 40 %, as Figma's Rail button State=Disabled.
+   The dataset line keeps its colour, so the loaded data stays readable. */
+.data-rail.is-disabled { cursor: default; }
+.data-rail.is-disabled:hover { box-shadow: none; }
+.data-rail.is-disabled .data-rail-btn { opacity: 0.4; cursor: not-allowed; }
+.data-rail.is-disabled:hover .data-rail-vert { color: var(--ink-muted); }
 
 /* ── Drawer ───────────────────────────────────────────── */
 .data-drawer {

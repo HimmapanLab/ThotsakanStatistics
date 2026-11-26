@@ -66,7 +66,7 @@ describe('bench', () => {
   it('holds the Data rail, the inputs and the results, in that order', () => {
     render('hypothesis')
     const cells = [...container.querySelectorAll('.bench > *')].map((el) => el.className.split(' ')[0])
-    expect(cells).toEqual(['bench-rail', 'bench-inputs', 'bench-output'])
+    expect(cells).toEqual(['bench-rail', 'bench-inputs', 'bench-split', 'bench-output'])
     expect(container.querySelector('.bench-output')!.textContent).toBe('Observation')
   })
 

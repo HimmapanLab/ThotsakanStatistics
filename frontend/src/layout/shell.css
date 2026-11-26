@@ -122,12 +122,24 @@
 .shell-bench { flex: 1; display: flex; flex-direction: column; min-width: 0; container-type: inline-size; }
 .bench {
   flex: 1; position: relative; display: grid; min-width: 0;
-  grid-template-columns: var(--rail-w) minmax(0, var(--inputs-w)) minmax(0, 1fr);
+  grid-template-columns: var(--rail-w) var(--panel-w, var(--inputs-w)) minmax(0, 1fr);
   min-height: calc(100vh - var(--topbar-h) - var(--pagehead-h));
   min-height: calc(100dvh - var(--topbar-h) - var(--pagehead-h));
 }
 /* While Data is open it takes the place of the inputs: as wide as it asks for, but the results keep room to read */
-.bench.is-drawer { grid-template-columns: var(--rail-w) clamp(300px, calc(100cqw - var(--rail-w) - 30rem), var(--drawer-w)) minmax(0, 1fr); }
+.bench.is-drawer { grid-template-columns: var(--rail-w) var(--panel-w, clamp(300px, calc(100cqw - var(--rail-w) - 30rem), var(--drawer-w))) minmax(0, 1fr); }
+
+/* The handle on the open panel's right edge (LabBench's Splitter): a 12 px hit area around a 4 px line. */
+.bench-split {
+  position: absolute; z-index: 6; top: 0; bottom: 0; left: calc(var(--rail-w) + var(--panel-w, var(--inputs-w)) - 6px);
+  width: 12px; display: flex; justify-content: center; cursor: col-resize; touch-action: none;
+}
+.bench-split::before { content: ""; width: 4px; height: 100%; border-radius: 2px; background: transparent; transition: background 120ms var(--ease); }
+.bench-split:hover::before { background: var(--line-strong); }
+.bench-split:active::before, .bench-split:focus-visible::before { background: var(--accent); }
+.bench-split:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; border-radius: 2px; }
+body.is-resizing { cursor: col-resize; user-select: none; }
+body.is-resizing .bench-output { pointer-events: none; }
 .bench-rail { grid-column: 1; grid-row: 1; position: relative; z-index: 3; display: flex; flex-direction: column; min-width: 0; }
 .bench-rail > * { flex: 1; min-width: 0; }
 .bench-drawer { grid-column: 2; grid-row: 1; min-width: 0; display: flex; flex-direction: column; background: var(--surface); border-right: 1px solid var(--line-strong); overflow: hidden; }
@@ -161,6 +173,7 @@
   .bench-rail, .bench-drawer, .bench-inputs, .bench-output, .bench.is-drawer .bench-output { grid-column: 1; grid-row: auto; }
   .bench-inputs, .bench-drawer { border-right: 0; border-bottom: 1px solid var(--line); }
   .bench-output { padding: 20px 16px 40px; }
+  .bench-split { display: none; }
 }
 
 /* ── Preferences sheet ─────────────────────────────────── */
