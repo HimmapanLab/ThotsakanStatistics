@@ -96,15 +96,28 @@ export function waitForOnline(signal?: AbortSignal): Promise<void> {
   })
 }
 
+/** What a reader sees when the request never reached the server (the browser's own text is "Failed to fetch"). */
+export const UNREACHABLE = 'Can’t reach the server. Check your connection and try again.'
+
+/** A network failure is a TypeError from fetch; a cancelled request (AbortError) is passed on unchanged. */
+async function fetchOnce(path: string, init: RequestInit, signal?: AbortSignal): Promise<Response> {
+  try {
+    return await fetch(path, { ...init, signal })
+  } catch (error) {
+    if ((error as Error)?.name === 'AbortError') throw error
+    throw error instanceof TypeError ? new Error(UNREACHABLE) : error
+  }
+}
+
 async function send(path: string, init: RequestInit, signal?: AbortSignal): Promise<Response> {
   await waitForOnline(signal)
   try {
-    return await fetch(path, { ...init, signal })
+    return await fetchOnce(path, init, signal)
   } catch (error) {
     // A network failure while offline: wait for the connection, then try once more.
     if ((error as Error)?.name !== 'AbortError' && isOffline()) {
       await waitForOnline(signal)
-      return fetch(path, { ...init, signal })
+      return fetchOnce(path, init, signal)
     }
     throw error
   }

@@ -1,7 +1,7 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import StatusBanner, { EmptyState } from './StatusBanner'
+import StatusBanner, { EmptyState, OFFLINE_MESSAGE } from './StatusBanner'
 import { ResultCard, Row, Section } from './notebook/NotebookParts'
 
 let root: Root
@@ -34,6 +34,18 @@ describe('StatusBanner', () => {
     expect(container.querySelector('[aria-label="Warnings"]')).toBeNull()
     act(() => root.render(<StatusBanner isComputing={false} error={null} hasResult warnings={['n is small']} />))
     expect(container.querySelector('[aria-label="Warnings"]')?.textContent).toBe('n is small')
+  })
+
+  it('says so when a waiting request cannot go out because the browser is offline', () => {
+    Object.defineProperty(navigator, 'onLine', { configurable: true, value: false })
+    try {
+      act(() => root.render(<StatusBanner isComputing={false} waiting error={null} hasResult />))
+      expect(container.textContent).toBe(OFFLINE_MESSAGE)
+      act(() => { Object.defineProperty(navigator, 'onLine', { configurable: true, value: true }); window.dispatchEvent(new Event('online')) })
+      expect(container.textContent).toBe('')
+    } finally {
+      Object.defineProperty(navigator, 'onLine', { configurable: true, value: true })
+    }
   })
 
   it('has no settings-changed message', () => {

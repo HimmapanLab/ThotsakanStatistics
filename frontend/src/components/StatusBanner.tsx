@@ -1,10 +1,16 @@
+import { useOnline } from '../hooks/useOnline'
+
+export const OFFLINE_MESSAGE = 'You are offline. Results will update when the connection is back.'
+
 /**
  * The one place a tab reports its result state (docs/interaction_contract.md, rules 7 and 16): computing,
  * error with Retry, and warnings that apply to the result on screen. Results update automatically, so there is no "settings changed" state.
  * Warnings must only be passed for the plot or result currently shown (contract rule 10).
  */
-export default function StatusBanner({ isComputing, error, hasResult, onRetry, resultNotice, warnings = [] }: {
+export default function StatusBanner({ isComputing, error, hasResult, onRetry, resultNotice, warnings = [], waiting = false }: {
   isComputing: boolean
+  /** A request is waiting for its answer (the last result may be dimmed): while offline, say so instead of "Updating…". */
+  waiting?: boolean
   error: string | null
   hasResult: boolean
   onRetry?: () => void
@@ -12,10 +18,13 @@ export default function StatusBanner({ isComputing, error, hasResult, onRetry, r
   resultNotice?: string
   warnings?: readonly string[]
 }) {
+  const online = useOnline()
   return (
     <div className="analysis-status">
       <div role="status" aria-live="polite" aria-atomic="true">
-        {isComputing ? (
+        {!online && (waiting || isComputing) ? (
+          <p className="status-warning">{OFFLINE_MESSAGE}</p>
+        ) : isComputing ? (
           <p className="text-[var(--color-text-muted)]">{hasResult ? 'Updating… Previous result shown below.' : 'Computing results…'}</p>
         ) : error ? (
           <div className="status-error">

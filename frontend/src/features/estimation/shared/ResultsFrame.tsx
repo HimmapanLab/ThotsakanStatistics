@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react'
+import StatusBanner from '../../../components/StatusBanner'
+import { useOnline } from '../../../hooks/useOnline'
 import ExportMenu, { type ExportHandlers } from '../../../components/ExportMenu'
 import FilterChip from '../../../components/lab/FilterChip'
 import ResultsHead from '../../../components/lab/ResultsHead'
@@ -24,6 +26,7 @@ export default function ResultsFrame({ title, n, updating, error, partialNotice,
   children: ReactNode
 }) {
   const { state } = useData()
+  const online = useOnline()
   const sub = (
     <>
       {state.filename}{n != null ? ` · n = ${n.toLocaleString('en-US')}` : ''}
@@ -35,7 +38,9 @@ export default function ResultsFrame({ title, n, updating, error, partialNotice,
       <ResultsHead title={title} sub={sub}>
         <ExportMenu handlers={exports} ready={exportReady} disabledReason={exportReason} />
       </ResultsHead>
-      <p className="est-updating" role="status" aria-live="polite">{updating ? 'Updating…' : ''}</p>
+      {updating && !online
+        ? <StatusBanner isComputing={false} error={null} hasResult waiting />
+        : <p className="est-updating" role="status" aria-live="polite">{updating ? 'Updating…' : ''}</p>}
       {error && (
         <div className="est-banner est-failed" role="alert">
           <strong>Couldn’t update results.</strong>{' '}

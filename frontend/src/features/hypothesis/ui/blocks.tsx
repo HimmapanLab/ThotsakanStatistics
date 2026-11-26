@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { usePlotHeight } from '../../../components/lab'
+import StatusBanner from '../../../components/StatusBanner'
+import { useOnline } from '../../../hooks/useOnline'
 import './hp.css'
 
 /**
@@ -12,9 +14,12 @@ import './hp.css'
  * screen, dimmed, under a quiet line that says so, and a screen reader hears the same.
  */
 export function Out({ updating = false, children }: { updating?: boolean; children: ReactNode }) {
+  const online = useOnline()
   return (
     <div className={`hp-out${updating ? ' is-updating' : ''}`} aria-busy={updating}>
-      <p className="hp-updating" role="status" aria-live="polite">{updating ? 'Updating…' : ''}</p>
+      {updating && !online
+        ? <StatusBanner isComputing={false} error={null} hasResult waiting />
+        : <p className="hp-updating" role="status" aria-live="polite">{updating ? 'Updating…' : ''}</p>}
       <div className="hp-out-body">{children}</div>
     </div>
   )

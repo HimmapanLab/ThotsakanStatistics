@@ -173,7 +173,7 @@ export default function HypothesisObservation({
 
   if (!result) {
     return <>
-      <StatusBanner isComputing={isComputing} error={error} hasResult={false} onRetry={onRetry} />
+      <StatusBanner isComputing={isComputing} waiting={isComputing} error={error} hasResult={false} onRetry={onRetry} />
       {!isComputing && !error && <EmptyState loaded hasData />}
     </>;
   }
