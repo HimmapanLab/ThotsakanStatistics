@@ -1,26 +1,13 @@
 // What the results say before there is anything to analyse. Prototype: emptyState, noNumericState.
-import { useState } from 'react'
-import { useData } from '../context/DataContext'
 import { useDrawer } from '../context/DrawerContext'
+import { EXAMPLE_DATASETS, useLoadExample } from '../features/data/ExampleDatasets'
 
-const EXAMPLE_FILE = 'ElectricityDemand.csv'
+const ELECTRICITY = EXAMPLE_DATASETS.find((dataset) => dataset.file === 'ElectricityDemand.csv')!
 
 /** No dataset is loaded: say so, and offer the two ways out. Probability works without data. */
 export function NoDataState() {
-  const { loadFile } = useData()
   const { setOpen } = useDrawer()
-  const [error, setError] = useState<string | null>(null)
-
-  async function useExample() {
-    setError(null)
-    try {
-      const response = await fetch(`${import.meta.env.BASE_URL}datasets/${EXAMPLE_FILE}`)
-      if (!response.ok) throw new Error(`status ${response.status}`)
-      await loadFile(new File([await response.text()], EXAMPLE_FILE, { type: 'text/csv' }), { exampleKey: EXAMPLE_FILE })
-    } catch (cause) {
-      setError(`Couldn’t load the example (${cause instanceof Error ? cause.message : String(cause)}). Open Data to try another.`)
-    }
-  }
+  const { load, error } = useLoadExample()
 
   return (
     <div className="bench-empty" data-state="no-data">
@@ -28,7 +15,7 @@ export function NoDataState() {
       <p>Pick an example dataset or upload a CSV. Probability works without data.</p>
       <div className="bench-empty-actions">
         <button type="button" className="sh-btn" onClick={() => setOpen(true)}>Open Data</button>
-        <button type="button" className="sh-btn sh-btn-primary" onClick={() => { void useExample() }}>Use Electricity demand</button>
+        <button type="button" className="sh-btn sh-btn-primary" onClick={() => { void load(ELECTRICITY) }}>Use Electricity demand</button>
       </div>
       {error && <p className="err" role="alert">{error}</p>}
     </div>

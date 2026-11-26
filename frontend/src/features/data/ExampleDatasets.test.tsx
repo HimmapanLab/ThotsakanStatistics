@@ -2,7 +2,7 @@ import { act } from 'react'
 import { readFileSync } from 'node:fs'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import ExampleDatasets, { EXAMPLE_DATASETS } from './ExampleDatasets'
+import { EXAMPLE_DATASETS, ExampleList } from './ExampleDatasets'
 
 const loadFile = vi.fn()
 vi.mock('../../context/DataContext', () => ({ useData: () => ({ loadFile }) }))
@@ -15,7 +15,7 @@ beforeEach(async () => {
   container = document.createElement('div')
   document.body.appendChild(container)
   root = createRoot(container)
-  await act(async () => root.render(<ExampleDatasets />))
+  await act(async () => root.render(<ExampleList />))
 })
 afterEach(async () => {
   await act(async () => root.unmount())
@@ -28,9 +28,7 @@ function button(name: string) {
 }
 
 describe('Example datasets', () => {
-  it('lists the three datasets after the button is clicked, WHR first as the default', async () => {
-    expect(container.textContent).not.toContain('Howell')
-    await act(async () => button('Example datasets').click())
+  it('lists the three datasets, WHR first as the default', async () => {
     const items = Array.from(container.querySelectorAll('li')).map((item) => item.textContent)
     expect(items).toHaveLength(3)
     expect(items[0]).toContain('World Happiness Report')
@@ -42,7 +40,6 @@ describe('Example datasets', () => {
   it('loads a picked dataset through the same path as an upload', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response('height,weight\n150,47\n'))
     vi.stubGlobal('fetch', fetchMock)
-    await act(async () => button('Example datasets').click())
     await act(async () => button('Howell').click())
     expect(fetchMock.mock.calls[0][0]).toBe('/datasets/Howell.csv')
     const file = loadFile.mock.calls[0][0] as File
@@ -52,7 +49,6 @@ describe('Example datasets', () => {
 
   it('says so when a dataset cannot be fetched, and loads nothing', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('', { status: 404 })))
-    await act(async () => button('Example datasets').click())
     await act(async () => button('Howell').click())
     expect(loadFile).not.toHaveBeenCalled()
     expect(container.querySelector('[role="alert"]')?.textContent).toContain('Howell')

@@ -53,7 +53,7 @@ Formula-based OLS with CI/PI bands and residual analysis.
 
 - [ ] Copy `ThotsakanStatistics/core/linear_regression.py` into `core/linear_regression/`, byte-identical. Put JSON/plot-free functions in a sibling module, as with `graphical_json.py`.
 - [ ] `services/regression.py` (from `controllers/linear_regression_controller.py`), `api/schemas/regression.py`, `api/routes/regression.py` (`POST /api/regression/fit`, behind `require_user`)
-- [ ] `features/regression/`: left panel (variables, formula, α), center (fit + bands, observed vs predicted, residuals), right panel (model formulas, then values); `src/api/regression.ts`. Follows the [interaction contract](interaction_contract.md).
+- [ ] `features/regression/`: left panel (variables, formula, α), results on the right (fit + bands, observed vs predicted, residuals; the model formulas behind ƒ buttons, no notebook panel); `src/api/regression.ts`. Follows the [interaction contract](interaction_contract.md).
 - [ ] Tests: core against statsmodels reference values, service, API
 - **Open question:** the formula input. MathLive isn't installed. Use a plain text field, or add the dependency?
 

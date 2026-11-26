@@ -11,8 +11,3 @@ export function ObservationSlot({ state }: { state: InferenceState }) {
   if (!state.hasData || !state.picked) return <ResultsGate loaded={!!state.sessionId} hasData={state.hasData} />
   return <InferenceObservation state={state} />
 }
-
-/** @deprecated The notebook panel is gone (its formulas moved to the ƒ buttons). Kept empty only so App.tsx compiles until the integrator drops its notebook slot. */
-export function NotebookSlot(_props: { state: InferenceState }) {
-  return null
-}

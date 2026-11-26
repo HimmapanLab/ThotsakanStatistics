@@ -1,6 +1,7 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { DataProvider } from '../context/DataContext'
 import { DrawerProvider, useDrawer } from '../context/DrawerContext'
 import LabBench from './LabBench'
 import type { Route } from '../app/routes'
@@ -15,10 +16,12 @@ function Probe() {
 
 function render(route: Route, initialOpen = false) {
   act(() => root.render(
-    <DrawerProvider initialOpen={initialOpen}>
-      <LabBench route={route} controls={<input aria-label="Draft setting" defaultValue="original" />} observation={<p>Observation</p>} />
-      <Probe />
-    </DrawerProvider>,
+    <DataProvider>
+      <DrawerProvider initialOpen={initialOpen}>
+        <LabBench route={route} controls={<input aria-label="Draft setting" defaultValue="original" />} observation={<p>Observation</p>} />
+        <Probe />
+      </DrawerProvider>
+    </DataProvider>,
   ))
 }
 

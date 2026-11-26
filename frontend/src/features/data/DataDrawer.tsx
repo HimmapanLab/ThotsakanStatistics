@@ -6,7 +6,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useData } from '../../context/DataContext'
 import { useDrawer } from '../../context/DrawerContext'
 import { haptic } from '../../lib/haptics'
-import { PRECISION_MAX, PRECISION_MIN } from '../../utils/formatNumber'
 import { FilterChip } from '../../components/lab/FilterChip'
 import { DataGrid } from './DataGrid'
 import { datasetTitle, ExampleList } from './ExampleDatasets'
@@ -15,7 +14,7 @@ import { CloseIcon, FilterIcon, RedoIcon, UndoIcon, UploadIcon } from './icons'
 import './data.css'
 
 export default function DataDrawer() {
-  const { state, filteredRows, loadFile, clearData, clearFilters, undoColumnTypes, redoColumnTypes, setPrecision } = useData()
+  const { state, filteredRows, loadFile, clearData, clearFilters, undoColumnTypes, redoColumnTypes } = useData()
   const { setOpen } = useDrawer()
   const closeRef = useRef<HTMLButtonElement>(null)
   const filterRef = useRef<HTMLButtonElement>(null)
@@ -125,18 +124,7 @@ export default function DataDrawer() {
       {state.notice && !hasData && <p className="data-note" role="status">{state.notice}</p>}
 
       {hasData ? (
-        <>
-          <DataGrid label={datasetTitle(state.filename)} />
-          <div className="data-prefs">
-            <label htmlFor="data-precision">Display precision</label>
-            <select id="data-precision" className="data-select" value={state.displayPrecision}
-              onChange={(event) => setPrecision(Number(event.target.value))}>
-              {Array.from({ length: PRECISION_MAX - PRECISION_MIN + 1 }, (_, i) => PRECISION_MIN + i).map((p) => (
-                <option key={p} value={p}>{p} decimal places</option>
-              ))}
-            </select>
-          </div>
-        </>
+        <DataGrid label={datasetTitle(state.filename)} />
       ) : (
         state.status !== 'loading' && (
           <div className="data-empty">

@@ -108,8 +108,13 @@ export default function App() {
   const [prefsOpen, setPrefsOpen] = usePreferencesOpen()
   const { open: drawerOpen, setOpen: setDrawerOpen } = useDrawer()
 
-  // Data opens next to the page you are on; moving to another page closes it.
-  useEffect(() => { setDrawerOpen(false) }, [route, setDrawerOpen])
+  // Data opens next to the page you are on; moving to another page closes it. Arriving from the front page (or
+  // the "Coming later" page) keeps it open, because "Load data" there asks for the drawer on the page it opens.
+  const previousRoute = useRef<Route | null>(null)
+  useEffect(() => {
+    if (previousRoute.current === null || isBenchRoute(previousRoute.current)) setDrawerOpen(false)
+    previousRoute.current = route
+  }, [route, setDrawerOpen])
 
   // A new page is named in the tab title, starts at the top, and has focus on its heading for screen readers.
   const firstRoute = useRef(true)

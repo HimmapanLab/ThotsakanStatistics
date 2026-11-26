@@ -89,18 +89,3 @@ export function ExampleList({ current, onLoaded, children }: {
     </>
   )
 }
-
-/** The older collapsible card; the Data drawer uses ExampleList directly. */
-export default function ExampleDatasets() {
-  const { state } = useData()
-  const [open, setOpen] = useState(false)
-  return (
-    <div className="data-examples-card">
-      <button type="button" className="data-examples-toggle" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
-        <span>Example datasets</span>
-        <span aria-hidden="true">{open ? '▲' : '▼'}</span>
-      </button>
-      {open && <ExampleList current={state?.filename} />}
-    </div>
-  )
-}

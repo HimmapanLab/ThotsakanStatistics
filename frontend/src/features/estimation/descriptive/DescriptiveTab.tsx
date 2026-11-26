@@ -18,8 +18,3 @@ export function ObservationSlot({ state }: { state: DescriptiveState }) {
       isComputing={state.isComputing} error={state.error} onRetry={state.handleRetry} warnings={state.warnings} />
   )
 }
-
-/** @deprecated The notebook panel is gone (its formulas moved to the ƒ buttons). Kept empty only so App.tsx compiles until the integrator drops its notebook slot. */
-export function NotebookSlot(_props: { state: DescriptiveState }) {
-  return null
-}
