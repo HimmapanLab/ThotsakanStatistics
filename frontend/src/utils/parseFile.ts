@@ -1,17 +1,13 @@
 import Papa from 'papaparse'
+import { guessTypes, profileColumns, splitColumns, type ColumnProfile } from './columnTypes'
 
 export interface ParsedDataset {
   headers: string[]
   rows: Record<string, string>[]     // raw strings
-  numericCols: string[]
-  categoricalCols: string[]
-}
-
-function inferColType(values: string[]): 'numeric' | 'categorical' {
-  const nonEmpty = values.filter((v) => v.trim() !== '' && v.toLowerCase() !== 'null' && v.toLowerCase() !== 'na')
-  if (nonEmpty.length === 0) return 'categorical'
-  const numericCount = nonEmpty.filter((v) => !isNaN(Number(v))).length
-  return numericCount / nonEmpty.length >= 0.8 ? 'numeric' : 'categorical'
+  numericCols: string[]             // Continuous and Discrete columns
+  categoricalCols: string[]         // Ordinal and Nominal columns; an ID column is in neither list
+  /** What the column types were guessed from; DataContext computes it when a dataset does not carry one. */
+  profiles?: Record<string, ColumnProfile>
 }
 
 export async function parseFile(file: File): Promise<ParsedDataset> {
@@ -36,17 +32,12 @@ export async function parseFile(file: File): Promise<ParsedDataset> {
         const rows = results.data
         const headers = results.meta.fields ?? []
 
-        // Infer column types
-        const numericCols: string[] = []
-        const categoricalCols: string[] = []
+        // The app's first guess at each column's type; Continuous and Discrete are numeric, Ordinal and
+        // Nominal are categorical, and an ID column is neither (utils/columnTypes.ts).
+        const profiles = profileColumns(headers, rows)
+        const { numericCols, categoricalCols } = splitColumns(headers, guessTypes(profiles))
 
-        for (const h of headers) {
-          const vals = rows.map((r) => r[h] ?? '')
-          if (inferColType(vals) === 'numeric') numericCols.push(h)
-          else categoricalCols.push(h)
-        }
-
-        resolve({ headers, rows, numericCols, categoricalCols })
+        resolve({ headers, rows, numericCols, categoricalCols, profiles })
       },
       error: (error: Error) => reject(error),
     })

@@ -13,6 +13,10 @@ import {
   type ReactNode,
 } from 'react'
 import { parseFile, extractNumeric, uniqueValues, type ParsedDataset } from '../utils/parseFile'
+import {
+  guessTypes, isCategoryType, MAX_LEVELS, profileColumns, splitColumns, typeFit, typesFromLists, validTypes,
+  type ColumnProfile, type ColumnType, type ColumnTypes,
+} from '../utils/columnTypes'
 import { liveSessionId, resetSessionAliases, setSessionRenewer, uploadCsv } from '../api/client'
 import { forgetSession, getCsvStore, loadSession, saveSession, type SavedSession } from '../lib/sessionStore'
 import { clampPrecision, PRECISION_DEFAULT } from '../utils/formatNumber'
@@ -29,6 +33,27 @@ function savedPrecision(): number {
   }
 }
 
+/** The column types the reader chose, kept beside the session record (lib/sessionStore.ts holds only the two lists). */
+export const COLUMN_TYPES_KEY = 'thotsakan-column-types'
+
+function saveColumnTypes(filename: string, types: ColumnTypes): void {
+  try { localStorage.setItem(COLUMN_TYPES_KEY, JSON.stringify({ filename, types })) } catch { /* nothing kept */ }
+}
+
+function savedColumnTypes(filename: string): Partial<ColumnTypes> | undefined {
+  try {
+    const value = JSON.parse(localStorage.getItem(COLUMN_TYPES_KEY) ?? 'null') as { filename?: unknown; types?: unknown } | null
+    if (!value || value.filename !== filename || typeof value.types !== 'object' || value.types === null) return undefined
+    return value.types as Partial<ColumnTypes>
+  } catch {
+    return undefined
+  }
+}
+
+function forgetColumnTypes(): void {
+  try { localStorage.removeItem(COLUMN_TYPES_KEY) } catch { /* nothing kept */ }
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface DataState {
@@ -40,7 +65,15 @@ export interface DataState {
   // Active filters: { colName: selectedValues[] }
   filters: Record<string, string[]>
 
-  // Manually overridden column types
+  // The type of every column (Continuous, Discrete, Ordinal, Nominal or ID), guessed first, then the reader's choice
+  columnTypes: ColumnTypes
+  // What the types are guessed and checked against
+  profiles: Record<string, ColumnProfile>
+  // Earlier and undone type choices, so a type change can be taken back
+  typeUndo: ColumnTypes[]
+  typeRedo: ColumnTypes[]
+
+  // Derived from columnTypes, in header order: Continuous + Discrete, and Ordinal + Nominal. ID is in neither.
   numericCols: string[]
   categoricalCols: string[]
 
@@ -59,6 +92,10 @@ const initialState: DataState = {
   filename: '',
   sessionId: null,
   filters: {},
+  columnTypes: {},
+  profiles: {},
+  typeUndo: [],
+  typeRedo: [],
   numericCols: [],
   categoricalCols: [],
   displayPrecision: PRECISION_DEFAULT,
@@ -71,13 +108,15 @@ const initialState: DataState = {
 
 type Action =
   | { type: 'LOADING' }
-  | { type: 'LOADED'; payload: { dataset: ParsedDataset; filename: string; sessionId: string; restored?: Pick<SavedSession, 'numericCols' | 'categoricalCols' | 'filters'> } }
+  | { type: 'LOADED'; payload: { dataset: ParsedDataset; filename: string; sessionId: string; restored?: Pick<SavedSession, 'numericCols' | 'categoricalCols' | 'filters'> & { columnTypes?: Partial<ColumnTypes> } } }
   | { type: 'NOTICE'; payload: string }
   | { type: 'ERROR'; payload: string }
   | { type: 'CLEAR' }
   | { type: 'SET_FILTER'; payload: { col: string; values: string[] } }
   | { type: 'CLEAR_FILTERS' }
-  | { type: 'RECLASSIFY'; payload: { col: string; to: 'numeric' | 'categorical' } }
+  | { type: 'SET_TYPE'; payload: { col: string; type: ColumnType } }
+  | { type: 'UNDO_TYPES' }
+  | { type: 'REDO_TYPES' }
   | { type: 'SET_PRECISION'; payload: number }
 
 function reducer(state: DataState, action: Action): DataState {
@@ -87,20 +126,26 @@ function reducer(state: DataState, action: Action): DataState {
 
     case 'LOADED': {
       const { dataset, filename, sessionId, restored } = action.payload
-      // After a refresh, keep the column types and filters the user had, for columns that still exist.
-      const known = (cols: string[] | undefined) => cols?.filter((col) => dataset.headers.includes(col))
-      const filters = Object.fromEntries(Object.entries(restored?.filters ?? {})
-        .filter(([col, values]) => dataset.headers.includes(col) && Array.isArray(values) && values.length > 0))
-      const numeric = known(restored?.numericCols)
-      const categorical = known(restored?.categoricalCols)
-      const restoredTypes = !!numeric && !!categorical
+      const profiles = dataset.profiles ?? profileColumns(dataset.headers, dataset.rows)
+      // After a refresh, keep the column types the reader had; older sessions saved only the two lists.
+      const columnTypes = restored?.columnTypes
+        ? validTypes(dataset.headers, profiles, restored.columnTypes)
+        : restored?.numericCols && restored.categoricalCols
+          ? typesFromLists(dataset.headers, profiles, restored.numericCols, restored.categoricalCols)
+          : guessTypes(profiles)
+      // ...and the filters, for columns that still exist and can still be filtered.
+      const filters = pruneFilters(Object.fromEntries(Object.entries(restored?.filters ?? {})
+        .filter(([col, values]) => dataset.headers.includes(col) && Array.isArray(values) && values.length > 0)), columnTypes)
       return {
         ...state,
         dataset,
         filename,
         sessionId,
-        numericCols: restoredTypes ? numeric : dataset.numericCols,
-        categoricalCols: restoredTypes ? categorical : dataset.categoricalCols,
+        profiles,
+        columnTypes,
+        typeUndo: [],
+        typeRedo: [],
+        ...splitColumns(dataset.headers, columnTypes),
         filters,
         status: 'ready',
         errorMsg: '',
@@ -129,21 +174,23 @@ function reducer(state: DataState, action: Action): DataState {
     case 'CLEAR_FILTERS':
       return { ...state, filters: {} }
 
-    case 'RECLASSIFY': {
-      const { col, to } = action.payload
-      if (to === 'numeric') {
-        return {
-          ...state,
-          numericCols: [...state.numericCols.filter((c) => c !== col), col],
-          categoricalCols: state.categoricalCols.filter((c) => c !== col),
-        }
-      } else {
-        return {
-          ...state,
-          categoricalCols: [...state.categoricalCols.filter((c) => c !== col), col],
-          numericCols: state.numericCols.filter((c) => c !== col),
-        }
-      }
+    case 'SET_TYPE': {
+      const { col, type } = action.payload
+      const profile = state.profiles[col]
+      if (!state.dataset || !profile || state.columnTypes[col] === type || !typeFit(profile, type).ok) return state
+      return withTypes({ ...state, typeUndo: [...state.typeUndo, state.columnTypes], typeRedo: [] }, { ...state.columnTypes, [col]: type })
+    }
+
+    case 'UNDO_TYPES': {
+      const previous = state.typeUndo[state.typeUndo.length - 1]
+      if (!previous) return state
+      return withTypes({ ...state, typeUndo: state.typeUndo.slice(0, -1), typeRedo: [...state.typeRedo, state.columnTypes] }, previous)
+    }
+
+    case 'REDO_TYPES': {
+      const next = state.typeRedo[state.typeRedo.length - 1]
+      if (!next) return state
+      return withTypes({ ...state, typeRedo: state.typeRedo.slice(0, -1), typeUndo: [...state.typeUndo, state.columnTypes] }, next)
     }
 
     case 'SET_PRECISION':
@@ -151,6 +198,21 @@ function reducer(state: DataState, action: Action): DataState {
 
     default:
       return state
+  }
+}
+
+/** A filter needs a category column: when a column stops being Nominal or Ordinal its filter goes with it. */
+function pruneFilters(filters: Record<string, string[]>, types: ColumnTypes): Record<string, string[]> {
+  return Object.fromEntries(Object.entries(filters).filter(([col]) => isCategoryType(types[col])))
+}
+
+/** New column types, with the two lists and the filters kept in step. */
+function withTypes(state: DataState, columnTypes: ColumnTypes): DataState {
+  return {
+    ...state,
+    columnTypes,
+    ...splitColumns(state.dataset?.headers ?? [], columnTypes),
+    filters: pruneFilters(state.filters, columnTypes),
   }
 }
 
@@ -182,12 +244,18 @@ interface DataContextValue {
   restoring: boolean
 
   // Actions
-  /** Load a CSV. `exampleKey` is the file name of a bundled example, so it can be fetched again later. */
-  loadFile: (file: File, options?: { exampleKey?: string | null }) => Promise<void>
+  /** Load a CSV. `exampleKey` is the file name of a bundled example, so it can be fetched again later.
+   *  Resolves true when the data is loaded, false when it was not (the error is in `state.errorMsg`). */
+  loadFile: (file: File, options?: { exampleKey?: string | null }) => Promise<boolean>
   clearData: () => void
   setFilter: (col: string, values: string[]) => void
   clearFilters: () => void
+  /** Older two-way switch, kept for callers that only know numeric or categorical. Prefer setColumnType. */
   reclassify: (col: string, to: 'numeric' | 'categorical') => void
+  /** Give a column a type. Refused (false) when the values do not fit it: see typeFit in utils/columnTypes. */
+  setColumnType: (col: string, type: ColumnType) => boolean
+  undoColumnTypes: () => void
+  redoColumnTypes: () => void
   setPrecision: (p: number) => void
 }
 
@@ -208,7 +276,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // The CSV text and example of the loaded data, so an expired session can be renewed by uploading it again.
   const source = useRef<{ text: string; filename: string; exampleKey: string | null } | null>(null)
 
-  const loadFile = useCallback(async (file: File, options?: { exampleKey?: string | null }) => {
+  const loadFile = useCallback(async (file: File, options?: { exampleKey?: string | null }): Promise<boolean> => {
     dispatch({ type: 'LOADING' })
     try {
       const [dataset, text, sessionId] = await Promise.all([parseFile(file), file.text(), uploadCsv(file)])
@@ -220,8 +288,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (exampleKey) void getCsvStore().clear()
       else void getCsvStore().put(text)
       dispatch({ type: 'LOADED', payload: { dataset, filename: file.name, sessionId } })
+      return true
     } catch (e) {
       dispatch({ type: 'ERROR', payload: e instanceof Error ? e.message : String(e) })
+      return false
     }
   }, [])
 
@@ -245,7 +315,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const dataset = await parseFile(new File([text], saved.filename, { type: 'text/csv' }))
         if (cancelled) return
         source.current = { text, filename: saved.filename, exampleKey: saved.exampleKey }
-        dispatch({ type: 'LOADED', payload: { dataset, filename: saved.filename, sessionId: saved.sessionId, restored: saved } })
+        dispatch({ type: 'LOADED', payload: { dataset, filename: saved.filename, sessionId: saved.sessionId, restored: { ...saved, columnTypes: savedColumnTypes(saved.filename) } } })
       } catch {
         if (cancelled) return
         forgetSession()
@@ -281,12 +351,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
       categoricalCols: state.categoricalCols,
       filters: state.filters,
     })
-  }, [state.status, state.sessionId, state.filename, state.numericCols, state.categoricalCols, state.filters])
+    saveColumnTypes(state.filename, state.columnTypes)
+  }, [state.status, state.sessionId, state.filename, state.numericCols, state.categoricalCols, state.filters, state.columnTypes])
 
   const clearData = useCallback(() => {
     source.current = null
     resetSessionAliases()
     forgetSession()
+    forgetColumnTypes()
     void getCsvStore().clear()
     dispatch({ type: 'CLEAR' })
   }, [])
@@ -296,8 +368,25 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const clearFilters = useCallback(() => dispatch({ type: 'CLEAR_FILTERS' }), [])
 
-  const reclassify = useCallback((col: string, to: 'numeric' | 'categorical') =>
-    dispatch({ type: 'RECLASSIFY', payload: { col, to } }), [])
+  const typesRef = useRef(state)
+  typesRef.current = state
+
+  const setColumnType = useCallback((col: string, type: ColumnType): boolean => {
+    const profile = typesRef.current.profiles[col]
+    if (!profile || !typeFit(profile, type).ok) return false
+    dispatch({ type: 'SET_TYPE', payload: { col, type } })
+    return true
+  }, [])
+
+  const reclassify = useCallback((col: string, to: 'numeric' | 'categorical') => {
+    const profile = typesRef.current.profiles[col]
+    if (!profile) return
+    const type: ColumnType = to === 'categorical' ? 'Nominal' : profile.wholeNumbers && profile.nUnique <= MAX_LEVELS ? 'Discrete' : 'Continuous'
+    setColumnType(col, type)
+  }, [setColumnType])
+
+  const undoColumnTypes = useCallback(() => dispatch({ type: 'UNDO_TYPES' }), [])
+  const redoColumnTypes = useCallback(() => dispatch({ type: 'REDO_TYPES' }), [])
 
   const setPrecision = useCallback((p: number) => {
     const precision = clampPrecision(p)
@@ -330,6 +419,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setFilter,
       clearFilters,
       reclassify,
+      setColumnType,
+      undoColumnTypes,
+      redoColumnTypes,
       setPrecision,
     }}>
       {restoring
