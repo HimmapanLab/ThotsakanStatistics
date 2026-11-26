@@ -49,4 +49,44 @@ describe('ExportMenu', () => {
     act(() => root.render(<ExportMenu ready disabledReason="Result is not applied" />))
     expect(button('Export').disabled).toBe(true)
   })
+
+  it('moves through the formats with the arrow keys, Home and End', () => {
+    act(() => root.render(<ExportMenu handlers={handlers()} />))
+    act(() => button('Export').click())
+    const press = (key: string) => act(() => {
+      document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }))
+    })
+    press('ArrowDown')
+    expect(document.activeElement?.textContent).toContain('CSV')
+    press('End')
+    expect(document.activeElement?.textContent).toContain('PDF')
+    press('ArrowDown')
+    expect(document.activeElement?.textContent).toContain('PNG')
+    press('ArrowUp')
+    expect(document.activeElement?.textContent).toContain('PDF')
+  })
+
+  it('says what each format holds: CSV in full, the PDF rounded', () => {
+    act(() => root.render(<ExportMenu handlers={handlers()} />))
+    act(() => button('Export').click())
+    const list = container.querySelector('[aria-label="Export formats"]')!
+    expect([...list.querySelectorAll('.lab-export-name')].map((name) => name.textContent)).toEqual(['Chart image', 'Result table', 'Report'])
+    expect(list.textContent).toContain('CSV · every value in full')
+    expect(list.textContent).toContain('PDF · plots and tables, rounded')
+  })
+
+  it('says Exported for a moment after a file is saved, then Export again', async () => {
+    vi.useFakeTimers()
+    try {
+      act(() => root.render(<ExportMenu handlers={handlers()} />))
+      act(() => button('Export').click())
+      await act(async () => button('Report').click())
+      expect(button('Exported')).toBeTruthy()
+      expect(container.querySelector('[role="status"]')!.textContent).toBe('PDF exported.')
+      act(() => { vi.advanceTimersByTime(2000) })
+      expect(container.querySelector('.lab-export-btn')!.textContent).toBe('Export')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })

@@ -84,7 +84,43 @@
 .lab-later p { margin: 0; max-width: 520px; color: var(--ink-muted); }
 .lab-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: var(--control-h); padding: 0 16px; border-radius: var(--radius-sm); border: 1.5px solid var(--line-strong); background: var(--field); color: var(--ink); font: inherit; font-size: 0.9375rem; font-weight: 600; cursor: pointer; }
 .lab-btn:hover { background: var(--hover-overlay); }
+.lab-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.lab-btn:disabled { cursor: not-allowed; color: var(--ink-faint); border-color: var(--line); background: var(--inset); }
+
+/* ── Export: a secondary button at the right of the results heading, and its list of formats ── */
+.lab-export { position: relative; flex: none; }
+.lab-export-btn { padding: 0 10px 0 12px; gap: 6px; }
+.lab-export-btn[aria-expanded="true"] { border-color: var(--accent); background: var(--press-overlay); }
+.lab-export-btn[data-done] { color: var(--accent); }
+.lab-export-chev { display: inline-flex; color: var(--ink-muted); transition: transform var(--dur-fast) var(--ease); }
+.lab-export-chev .lab-icon { width: 16px; height: 16px; }
+.lab-export-btn[aria-expanded="true"] .lab-export-chev { transform: rotate(180deg); }
+.lab-export-pop {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; width: min(20rem, calc(100vw - 32px));
+  display: flex; flex-direction: column; padding: 4px; border: 1px solid var(--line); border-radius: var(--radius-md);
+  background: var(--surface); box-shadow: var(--shadow-pop);
+  animation: lab-export-in var(--dur-fast) var(--ease);
+}
+@keyframes lab-export-in { from { opacity: 0; transform: translateY(-4px); } }
+.lab-export-item {
+  display: grid; grid-template-columns: 20px 1fr; gap: 2px 12px; align-items: start; width: 100%; min-height: 44px;
+  padding: 10px 12px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--ink);
+  font: inherit; text-align: left; cursor: pointer;
+}
+.lab-export-item:hover { background: var(--hover-overlay); }
+.lab-export-item:active { background: var(--press-overlay); }
+.lab-export-item:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; background: var(--hover-overlay); }
+.lab-export-ico { grid-row: 1 / span 2; display: inline-flex; margin-top: 1px; color: var(--accent); }
+.lab-export-name { font-size: 0.9375rem; font-weight: 600; line-height: 1.35; }
+.lab-export-hint { grid-column: 2; font-size: 0.875rem; line-height: 1.35; color: var(--ink-muted); }
+.lab-export-error {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 19; width: min(18rem, calc(100vw - 32px)); margin: 0;
+  padding: 8px 12px; border: 1px solid var(--error); border-radius: var(--radius-sm); background: var(--error-bg);
+  color: var(--error); font-size: 0.875rem;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .lab-step.is-new { animation: none; }
+  .lab-export-pop { animation: none; }
+  .lab-export-chev { transition: none; }
 }
