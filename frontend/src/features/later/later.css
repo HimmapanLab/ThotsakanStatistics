@@ -1,0 +1,16 @@
+/* The "Coming later" page: the illustration over centred text, then one button (Figma 16 Regression later). */
+.later-scroll { flex: 1; min-height: 0; overflow-y: auto; background: var(--surface); color: var(--ink); }
+.later-page { max-width: 560px; margin: 0 auto; padding: 72px 16px 56px; display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; }
+.later-page p { margin: 0; color: var(--ink-muted); }
+.ill-later { width: 288px; max-width: 100%; height: auto; margin-bottom: 8px; }
+.later-title { margin: 0; font-size: 1.375rem; line-height: 1.75rem; font-weight: 600; }
+.later-title:focus { outline: none; }
+.later-btn {
+  display: inline-flex; align-items: center; justify-content: center; min-height: var(--control-h); padding: 0 16px; margin-top: 8px;
+  border-radius: var(--radius-sm); border: 1.5px solid var(--action); background: var(--action); color: var(--action-ink);
+  font: inherit; font-size: 0.9375rem; font-weight: 600; cursor: pointer;
+  box-shadow: inset 0 0 0 100vmax transparent; transition: box-shadow var(--dur-fast);
+}
+.later-btn:hover { box-shadow: inset 0 0 0 100vmax var(--hover-overlay); }
+.later-btn:active { box-shadow: inset 0 0 0 100vmax var(--press-overlay); }
+.later-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
