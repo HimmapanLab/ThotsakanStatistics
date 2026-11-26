@@ -10,6 +10,7 @@ import { ADVANCED_GROUPS, BASIC_TREE } from './descriptiveOptions'
 import type { DescriptiveState } from './useDescriptiveTabState'
 import InputsFrame from '../shared/InputsFrame'
 import { Option, OptionGroup, SubHead } from '../shared/Options'
+import { StatFx } from './descriptiveFormulas'
 
 const DEFAULT_QUANTILES = '0.25, 0.5, 0.75'
 
@@ -43,7 +44,8 @@ export default function DescriptiveControls({ state }: { state: DescriptiveState
     ),
   }
   const option = (id: string, label: string) => (
-    <Option key={id} checked={on(id)} onChange={toggle(id)} label={label} detail={detailFor[id]} />
+    <Option key={id} checked={on(id)} onChange={toggle(id)} label={label} detail={detailFor[id]}
+      fx={<StatFx id={id} corrected={draft.showConsistencyCorr} />} />
   )
 
   const show = (

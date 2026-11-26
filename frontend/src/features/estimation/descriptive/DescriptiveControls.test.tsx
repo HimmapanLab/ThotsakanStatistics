@@ -5,11 +5,12 @@ import { computeDescriptiveStats } from '../../../api/descriptive'
 import DescriptiveControls from './DescriptiveControls'
 import { configFromDraft, useDescriptiveTabState } from './useDescriptiveTabState'
 import type { DataState } from '../../../context/DataContext'
+import { DrawerProvider } from '../../../context/DrawerContext'
 
 const data = {
   state: {
     status: 'ready' as DataState['status'], sessionId: 's' as string | null, filename: 'f.csv', numericCols: ['score', 'w'], categoricalCols: [] as string[],
-    filters: {}, displayPrecision: 3, dataset: null,
+    filters: {}, displayPrecision: 3, dataset: { rows: [] } as unknown as DataState['dataset'],
   },
   filteredRows: [],
 }
@@ -22,7 +23,7 @@ vi.mock('../../../api/descriptive', async (importOriginal) => {
 let root: Root
 let container: HTMLDivElement
 let hook!: ReturnType<typeof useDescriptiveTabState>
-function View() { hook = useDescriptiveTabState(); return <DescriptiveControls state={hook} /> }
+function View() { hook = useDescriptiveTabState(); return <DrawerProvider><DescriptiveControls state={hook} /></DrawerProvider> }
 const lastConfig = () => configFromDraft(hook.draft)
 
 beforeEach(async () => {
@@ -32,6 +33,8 @@ beforeEach(async () => {
   document.body.appendChild(container)
   root = createRoot(container)
   await act(async () => root.render(<View />))
+  // Step gating: nothing is picked for the reader, so most tests start by picking a variable.
+  await act(async () => hook.setDraft({ column: 'score' }))
 })
 afterEach(async () => {
   await act(async () => root.unmount())
@@ -49,7 +52,7 @@ async function type(input: HTMLInputElement, value: string) {
     input.dispatchEvent(new Event('input', { bubbles: true }))
   })
 }
-const openAdvanced = () => click([...container.querySelectorAll('button')].find(button => button.textContent?.includes('Advanced statistics'))!)
+const openAdvanced = () => click(container.querySelector('summary')!)
 
 describe('Descriptive controls', () => {
   it('starts with every basic statistic ticked and no advanced ones', () => {
@@ -63,13 +66,12 @@ describe('Descriptive controls', () => {
     expect(lastConfig().selectedStats).not.toContain('iqr')
   })
 
-  it('lets the user deselect a single basic statistic, and a whole group', async () => {
+  it('lets the user deselect a single basic statistic; the group names are headings, not options', async () => {
     await click(checkbox('Median'))
     expect(lastConfig().selectedStats).toContain('mean')
     expect(lastConfig().selectedStats).not.toContain('median')
-    await click(checkbox('Central tendency'))
-    expect(lastConfig().selectedStats).not.toContain('mean')
-    expect(has('Mean')).toBe(false) // its sub-options are hidden with it
+    expect(has('Central tendency')).toBe(false)
+    expect(container.textContent).toContain('Central tendency')
   })
 
   it('shows the weights column only while Weighted mean is ticked, and sends it only then', async () => {
@@ -114,20 +116,62 @@ describe('Descriptive controls', () => {
     }
   })
 
-  it('shows the whole panel without a dataset, and picks the first variable once one loads', async () => {
+  it('waits for a variable: steps 2 and 3 show only their names, and nothing is requested', async () => {
+    await act(async () => hook.setDraft({ column: '' }))
+    const headings = () => [...container.querySelectorAll('h2')].map(h => h.textContent)
+    expect(headings()).toEqual(['Data', 'What to show (opens after step 1)', 'Settings (opens after step 2)'])
+    expect(has('Mean')).toBe(false)
+    expect(container.querySelector('input[type="checkbox"]')).toBeNull()
+    expect(container.textContent).not.toContain('Reset to defaults')
+  })
+
+  it('opens steps 2 and 3 together when a variable is picked, and they stay open', async () => {
+    await act(async () => hook.setDraft({ column: '' }))
+    vi.mocked(computeDescriptiveStats).mockClear()
+    await act(async () => {
+      const select = field('Variable') as HTMLSelectElement
+      select.value = 'score'
+      select.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    expect([...container.querySelectorAll('h2')].map(h => h.textContent)).toEqual(['Data', 'What to show', 'Settings'])
+    expect(container.querySelectorAll('section.is-new')).toHaveLength(2) // only the steps that just opened animate
+    expect(has('Mean')).toBe(true)
+    await act(async () => hook.setDraft({ showConsistencyCorr: false }))
+    expect(has('Mean')).toBe(true)
+  })
+
+  it('shows a formula button beside each statistic, and its normal correction only while that column is on', async () => {
+    const buttons = () => [...container.querySelectorAll('button.lab-fx')].map(item => item.getAttribute('aria-label'))
+    expect(buttons()).toContain('Formula for Mean')
+    expect(buttons()).toContain('Formula for Std dev (ddof=1)')
+    const open = async (label: string) => {
+      await act(async () => [...container.querySelectorAll<HTMLButtonElement>('button.lab-fx')].find(item => item.getAttribute('aria-label') === label)!.click())
+      return document.querySelector('.lab-popover')!
+    }
+    await act(async () => hook.setDraft({ showConsistencyCorr: false }))
+    const plain = await open('Formula for Std dev (ddof=1)')
+    expect(plain.querySelectorAll('.lab-tex')).toHaveLength(1)
+    expect(plain.textContent).not.toContain('normal correction')
+    await act(async () => hook.setDraft({ showConsistencyCorr: true }))
+    const corrected = document.querySelector('.lab-popover')! // still open: it follows the switch
+    expect(corrected.querySelectorAll('.lab-tex')).toHaveLength(2)
+    expect(corrected.textContent).toContain('normal correction')
+    expect(corrected.querySelector('.katex-error')).toBeNull()
+  })
+
+  it('shows the dataset line without a dataset, and no variable until one loads', async () => {
     const loaded = data.state
     await act(async () => root.unmount())
     vi.mocked(computeDescriptiveStats).mockClear()
-    data.state = { ...loaded, status: 'idle', sessionId: null, filename: '', numericCols: [] }
+    data.state = { ...loaded, status: 'idle', sessionId: null, filename: '', numericCols: [], dataset: null }
     root = createRoot(container)
     await act(async () => root.render(<View />))
-    expect((field('Variable') as HTMLSelectElement).disabled).toBe(true)
-    expect(container.textContent).toContain('Upload a CSV file in the Data tab.')
-    expect(container.textContent).toContain('Basic statistics')
-    expect(container.textContent).toContain('Reset to defaults')
+    expect(container.textContent).toContain('No data loaded')
+    expect(container.querySelector('select')).toBeNull()
     expect(computeDescriptiveStats).not.toHaveBeenCalled()
     data.state = loaded
     await act(async () => root.render(<View />))
-    expect(hook.draft.column).toBe('score')
+    expect(hook.draft.column).toBe('') // nothing is picked for the reader
+    expect(has('Variable')).toBe(true)
   })
 })

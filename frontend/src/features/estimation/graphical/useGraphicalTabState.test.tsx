@@ -4,17 +4,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { graphicalApi, type GraphicalResponse } from '../../../api/graphical'
 import { inferenceApi } from '../../../api/inference'
 import { useGraphicalTabState, type GraphicalTabState } from './useGraphicalTabState'
-import { ControlsSlot, NotebookSlot, ObservationSlot } from './GraphicalTab'
+import { ControlsSlot, ObservationSlot } from './GraphicalTab'
+import { DrawerProvider } from '../../../context/DrawerContext'
 
 function dataFixture() {
   return { state: {
-    status: 'ready', sessionId: 'session-a', filename: 'sample.csv',
+    status: 'ready', sessionId: 'session-a', filename: 'sample.csv', dataset: { rows: [] },
     numericCols: ['Age', 'Weight'], filters: {} as Record<string, string[]>, displayPrecision: 3,
-  } }
+  }, filteredRows: [] }
 }
 let data = dataFixture()
 vi.mock('../../../context/DataContext', () => ({ useData: () => data }))
-vi.mock('./GraphicalObservation', () => ({ default: () => <div>Plot</div> }))
+vi.mock('plotly.js-basic-dist-min', () => ({ default: {} }))
+vi.mock('react-plotly.js/factory', () => ({ default: () => () => <div data-testid="plot" /> }))
 
 function response(n = 10, warnings: string[] = []): GraphicalResponse {
   return { summary: { n, n_unique: n }, histogram_data: { bins: [0, 1, 2], counts: [4, 6], densities: [0.4, 0.6] }, warnings }
@@ -31,11 +33,10 @@ let container: HTMLDivElement
 let state: GraphicalTabState
 function Harness({ controls = true }: { controls?: boolean }) {
   state = useGraphicalTabState()
-  return <>
+  return <DrawerProvider>
     {controls && <ControlsSlot state={state} />}
     <section aria-label="Observation"><ObservationSlot state={state} /></section>
-    <section aria-label="Notebook"><NotebookSlot state={state} /></section>
-  </>
+  </DrawerProvider>
 }
 async function render(controls = true) {
   await act(async () => root.render(<Harness controls={controls} />))
@@ -45,7 +46,7 @@ async function advance(ms = 250) {
 }
 const calls = () => vi.mocked(graphicalApi.computeGraph).mock.calls
 const lastParams = () => vi.mocked(graphicalApi.computeGraph).mock.lastCall![1]
-function panel(name: 'Observation' | 'Notebook') {
+function panel(name: 'Observation') {
   return container.querySelector(`section[aria-label="${name}"]`)!
 }
 function panels() {
@@ -65,6 +66,8 @@ beforeEach(async () => {
     deviation_estimators: ['Deviation (1 ddof)', 'MAD (bias corrected)'],
   })
   await render()
+  // Step gating: nothing is picked for the reader, so every test starts by picking a variable.
+  await act(async () => state.updateConfig('column', 'Age'))
 })
 afterEach(async () => {
   await act(async () => root.unmount())
@@ -74,7 +77,14 @@ afterEach(async () => {
 })
 
 describe('Graphical: every setting updates the plot on its own', () => {
-  it('draws the base graph on load, with no Run or Update button anywhere', async () => {
+  it('waits for a variable: nothing is requested and the results area says what to do', async () => {
+    await act(async () => state.updateConfig('column', ''))
+    await advance(1000)
+    expect(calls()).toHaveLength(0)
+    expect(panel('Observation').textContent).toContain('Pick a variable to start')
+  })
+
+  it('draws the base graph once a variable is picked, with no Run or Update button anywhere', async () => {
     await advance()
     expect(calls()).toHaveLength(1)
     expect(state.result?.summary.n).toBe(10)
@@ -169,7 +179,7 @@ describe('Graphical: every setting updates the plot on its own', () => {
 
   it('shows no variable error without a dataset, as the other tabs', async () => {
     await act(async () => root.unmount())
-    data = { state: { ...data.state, status: 'idle', sessionId: null as unknown as string, filename: '', numericCols: [] } }
+    data = { ...data, state: { ...data.state, status: 'idle', sessionId: null as unknown as string, filename: '', numericCols: [] } }
     root = createRoot(container)
     await render()
     expect(container.textContent).not.toContain('Select a numeric column')
@@ -226,17 +236,17 @@ describe('Graphical: result ownership', () => {
     const request = pending()
     vi.mocked(graphicalApi.computeGraph).mockReturnValueOnce(request.promise)
     await advance()
-    data = { state: { ...data.state, filters: { Site: ['A'] } } }
+    data = { ...data, state: { ...data.state, filters: { Site: ['A'] } } }
     await render()
     await act(async () => request.resolve(response(99)))
     expect(state.result).toBeNull()
     await advance()
     expect(lastParams().filters).toEqual({ Site: ['A'] })
     await act(async () => state.updateConfig('addNormal', true))
-    data = { state: { ...data.state, sessionId: 'session-b', numericCols: ['Score'] } }
+    data = { ...data, state: { ...data.state, sessionId: 'session-b', filename: 'other.csv', numericCols: ['Score'] } }
     await render()
     expect(state.result).toBeNull()
-    expect(state.cfg.column).toBe('Score')
+    expect(state.cfg.column).toBe('') // another dataset starts with nothing picked
     expect(state.cfg.addNormal).toBe(false)
   })
 
@@ -245,40 +255,43 @@ describe('Graphical: result ownership', () => {
     vi.mocked(graphicalApi.computeGraph).mockRejectedValueOnce(new Error('Service unavailable'))
     await act(async () => state.updateConfig('addNormal', true))
     await advance()
-    for (const section of panels()) {
-      expect(section.textContent).toContain('Couldn’t update results')
-      expect(section.textContent).toContain('Previous result — update failed.')
-      expect(section.textContent).not.toContain('sample.csv')
-      expect(section.querySelector('button')?.textContent).toBe('Retry')
-    }
+    const text = panel('Observation').textContent!
+    expect(text).toContain('Couldn’t update results')
+    expect(text).toContain('The result below is the previous one.')
+    expect(panel('Observation').querySelector('[data-testid="plot"]')).not.toBeNull() // the last result stays on screen
+    expect([...panel('Observation').querySelectorAll('button')].map(button => button.textContent)).toContain('Retry')
     await act(async () => state.retry())
     expect(state.error).toBeNull()
     expect(lastParams().add_normal).toBe(true)
   })
 
-  it('gives an initial failure the same recovery in both panels without contradictory empty guidance', async () => {
+  it('gives an initial failure a Retry without contradictory empty guidance', async () => {
     vi.mocked(graphicalApi.computeGraph).mockRejectedValueOnce(new Error('Unavailable'))
+    await act(async () => state.updateConfig('column', 'Weight'))
     await advance()
-    for (const section of panels()) {
-      expect(section.textContent).toContain('Couldn’t update results')
-      expect(section.textContent).not.toContain('Pick a column')
-    }
+    expect(panel('Observation').textContent).toContain('Couldn’t update results')
+    expect(panel('Observation').textContent).not.toContain('Pick a variable')
     await act(async () => state.retry())
     expect(state.result).not.toBeNull()
   })
 })
 
-describe('Graphical: warnings and notebook', () => {
-  it('shows backend warnings with the plot, once, and never as lessons or notes in the notebook', async () => {
+describe('Graphical: warnings, formulas and results', () => {
+  const openFx = async (label: string) => {
+    const button = [...container.querySelectorAll<HTMLButtonElement>('button.lab-fx')].find(item => item.getAttribute('aria-label') === label)!
+    await act(async () => button.click())
+    return document.querySelector('.lab-popover')!
+  }
+  const headings = () => [...panel('Observation').querySelectorAll('h3')].map(node => node.textContent)
+
+  it('shows backend warnings with the plot, once', async () => {
     vi.mocked(graphicalApi.computeGraph).mockResolvedValue(response(10, ['KDE not drawn: every observation has the same value.']))
+    await act(async () => state.updateConfig('column', 'Weight'))
     await advance()
-    expect(panel('Observation').textContent).toContain('KDE not drawn')
-    expect(panel('Notebook').textContent).not.toContain('KDE not drawn')
-    expect(panel('Notebook').textContent).not.toContain('Lesson')
-    expect(panel('Notebook').textContent).not.toContain('Overlay estimates')
+    expect(panel('Observation').textContent!.match(/KDE not drawn/g)).toHaveLength(1)
   })
 
-  it('shows the estimator notice as a warning above the plot, not in the left panel', async () => {
+  it('shows the estimator notice as a warning with the results, not in the left panel', async () => {
     await act(async () => root.unmount())
     container.remove()
     container = document.createElement('div')
@@ -286,6 +299,7 @@ describe('Graphical: warnings and notebook', () => {
     root = createRoot(container)
     vi.mocked(inferenceApi.getEstimators).mockRejectedValue(new Error('Unavailable'))
     await render()
+    await act(async () => state.updateConfig('column', 'Age'))
     await advance()
     const warnings = panel('Observation').querySelector('[aria-label="Warnings"]')
     expect(warnings?.textContent).toContain('Estimator choices could not load')
@@ -312,68 +326,64 @@ describe('Graphical: warnings and notebook', () => {
     expect(container.querySelector('input[type="range"]')).toBeNull()
   })
 
-  it('shows the KDE formula and the bandwidth in use, with its default rule', async () => {
+  it('lists the bandwidth in use and its default rule in a table, before the plot, each with its own formula', async () => {
     vi.mocked(graphicalApi.computeGraph).mockResolvedValue({ ...response(), kde_curve: { x: [0, 1], y: [1, 1], bandwidth: 1.5, default_bandwidth: 2 } })
     await advance()
-    const notebook = panel('Notebook')
-    expect([...notebook.querySelectorAll('h3')].map(node => node.textContent)).toEqual(['Definition', 'KDE (kernel density estimator)', 'Values'])
-    expect(notebook.textContent).toContain('Scott')
-    expect(notebook.textContent).toContain('1.500')
-    expect(notebook.textContent).toContain('2.000')
-    expect(notebook.querySelector('.katex-error')).toBeNull()
+    expect(headings()).toEqual(['Values', 'Histogram'])
+    const table = panel('Observation').querySelector('table')!
+    expect(table.textContent).toContain('1.500')
+    expect(table.textContent).toContain('2.000')
+    expect(table.textContent).toContain('Scott')
+    const popover = await openFx('Formula for Scott’s rule bandwidth')
+    expect(popover.textContent).toContain('sample standard deviation')
+    expect(popover.querySelector('.katex-error')).toBeNull()
   })
 
   it('says when whole numbers were given one bar each', async () => {
     vi.mocked(graphicalApi.computeGraph).mockResolvedValue({ ...response(), histogram_data: { bins: [0.5, 1.5, 2.5], counts: [4, 6], densities: [0.4, 0.6], unit_width: true } })
+    await act(async () => state.updateConfig('column', 'Weight'))
     await advance()
-    expect(panel('Notebook').textContent).toContain('one bar of width 1 per whole number')
+    expect(panel('Observation').textContent).toContain('one bar of width 1 per whole number')
   })
 
-  it('uses the shared radio group for the graph type and keeps no applied-settings text', async () => {
-    const legend = Array.from(container.querySelectorAll('legend')).find((element) => element.textContent === 'Graph')
-    expect(legend?.className).toContain('text-sm')
-    expect(legend?.className).not.toContain('font-semibold')
+  it('uses the shared option group for the plot type and keeps no applied-settings text', async () => {
+    const legend = Array.from(container.querySelectorAll('legend')).find((element) => element.textContent === 'Plot type')
+    expect(legend).toBeDefined()
     expect('appliedSettings' in state).toBe(false)
   })
 
   it('typesets the normal-overlay estimates instead of combining-hat characters', async () => {
-    vi.mocked(graphicalApi.computeGraph).mockResolvedValue({ ...response(), point_estimates: { mu: 1, sigma: 2 } })
+    vi.mocked(graphicalApi.computeGraph).mockResolvedValue({ ...response(), normal_curve: { x: [0, 1], y: [1, 1], mu: 1, sigma: 2 }, point_estimates: { mu: 1, sigma: 2 } })
     await act(async () => state.updateConfig('addNormal', true))
     await advance()
-    const notebook = panel('Notebook')
-    expect(notebook.textContent).not.toMatch(/[μσ]\u0302/)
-    const values = [...notebook.querySelectorAll('section')].find(node => node.querySelector('h3')?.textContent === 'Values')!
-    expect(values.querySelectorAll(':scope > div > span:first-child .katex')).toHaveLength(2)
+    const table = panel('Observation').querySelector('table')!
+    expect(table.textContent).not.toMatch(/[μσ]\u0302/)
+    expect(table.querySelectorAll('td:first-child .katex')).toHaveLength(2)
   })
 
-  it('puts the definition and formulas first and the values last', async () => {
-    vi.mocked(graphicalApi.computeGraph).mockResolvedValue({ ...response(), point_estimates: { mu: 1, sigma: 2 } })
-    await act(async () => state.updateConfig('addNormal', true))
-    await advance()
-    const notebook = panel('Notebook')
-    expect([...notebook.querySelectorAll('h3')].map(node => node.textContent)).toEqual(['Definition', 'Normal overlay', 'Values'])
-    const overlay = [...notebook.querySelectorAll('section')].find(node => node.querySelector('h3')?.textContent === 'Normal overlay')!
-    expect(overlay.textContent).not.toContain('1.000')
+  it('shows a formula only when its ƒ button is opened, and only the one beside the option', async () => {
+    expect(container.querySelector('.katex')).toBeNull()
+    const popover = await openFx('Formula for Histogram')
+    expect(popover.textContent).toContain('Bar areas sum to 1')
+    expect(popover.querySelectorAll('.katex').length).toBeGreaterThan(0)
+    expect(popover.querySelector('.katex-error')).toBeNull()
+    expect(popover.textContent).not.toContain('Empirical CDF')
   })
 
-  it('shows the definition of what is plotted, with no sample section', async () => {
-    await advance()
-    const text = panel('Notebook').textContent!
-    expect(text).not.toContain('Unique values')
-    expect(text).not.toContain('density = count / (n × bin width)')
-    expect(text).toContain('Bar areas sum to 1')
-    expect(panel('Notebook').querySelectorAll('.katex').length).toBeGreaterThan(0)
-    expect(panel('Notebook').querySelector('.katex-error')).toBeNull()
-  })
-
-  it('typesets the ECDF definition and shows the DKW band formula only with the band', async () => {
-    vi.mocked(graphicalApi.computeGraph).mockResolvedValue({ summary: { n: 10, n_unique: 10 }, warnings: [],
-      ecdf_data: { x: [1, 2], y: [0.5, 1], epsilon: 0.43 } })
+  it('shows the ECDF definition and the DKW band formula, and the normal model in its cumulative form, with the ECDF on', async () => {
     await act(async () => state.updateConfig('graphType', 'ECDF'))
-    await advance()
-    const notebook = panel('Notebook')
-    expect(notebook.textContent).toContain('Empirical CDF')
-    expect(notebook.textContent).not.toContain('DKW band')
-    expect(notebook.querySelector('.katex-error')).toBeNull()
+    const ecdf = await openFx('Formula for ECDF')
+    expect(ecdf.textContent).toContain('Proportion of observations at or below x')
+    const band = await openFx('Formula for Confidence band')
+    expect(band.textContent).toContain('expected to contain the true distribution function')
+    const normal = await openFx('Formula for Normal model')
+    expect(normal.textContent).toContain('cumulative')
+    expect(normal.textContent).not.toContain('drawn as the density')
+    expect(document.querySelector('.katex-error')).toBeNull()
+  })
+
+  it('keeps the options of a plot type that is not drawn greyed out with the reason, and no formula button for them', async () => {
+    expect(container.textContent).toContain('ECDF only.')
+    expect([...container.querySelectorAll('button.lab-fx')].map(item => item.getAttribute('aria-label'))).not.toContain('Formula for Confidence band')
   })
 })

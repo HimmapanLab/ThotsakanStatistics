@@ -33,7 +33,7 @@ export function graphFormula(topic: GraphTopic, ecdf: boolean): GraphFormula {
     }
     case 'normal': return {
       title: ecdf ? 'Normal model (cumulative)' : 'Normal model (density)',
-      def: 'The normal curve that uses the sample mean and standard deviation as its mean and spread.',
+      def: 'The normal curve that uses the sample mean and standard deviation as its mean and spread. ' + (ecdf ? 'On the ECDF plot it is drawn as the cumulative curve.' : 'On the histogram it is drawn as the density.'),
       tex: [ecdf ? NORMAL_CDF : NORMAL_DENSITY],
     }
     case 'band': return {
