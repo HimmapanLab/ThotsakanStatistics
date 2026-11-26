@@ -52,7 +52,7 @@ describe('hypothesis result panel', () => {
     expect(container.querySelector('table')!.compareDocumentPosition(container.querySelector('[data-testid="plot"]')!)
       & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     const cells = [...container.querySelectorAll('tbody td')].map((cell) => cell.textContent)
-    expect(cells).toEqual(['2.000', '20', '0.040', '0.05', '±1.960'])
+    expect(cells).toEqual(['2.000', '20', '0.040', '0.050', '±1.960'])
     expect(container.textContent).toContain('mu = 0')
     expect(container.textContent).toContain('mu != 0')
   })

@@ -214,7 +214,7 @@ export default function HypothesisObservation({
       subtitle: `${result.h0} vs ${result.h1}`,
       charts: registry.charts,
       stats: [
-        { label: 'Alpha', value: String(result.alpha) },
+        { label: 'Alpha', value: formatNumber(result.alpha, precision) },
         { label: 'Statistic', value: String(result.statistic) },
         { label: 'P-value', value: String(result.p_value) },
         { label: 'Critical values', value: region.critical_values.join(', ') },
@@ -237,7 +237,7 @@ export default function HypothesisObservation({
     stat: formatNumber(result.statistic, precision),
     df: dofLabel,
     p: formatNumber(result.p_value, precision),
-    alpha: String(result.alpha),
+    alpha: formatNumber(result.alpha, precision),
     crit: critLabel,
     ...(ciPair ? { ci: `[${formatNumber(ciPair[0], precision)}, ${formatNumber(ciPair[1], precision)}]` } : {}),
     ...(typeof effect === 'number' ? { d: formatNumber(effect, precision) } : {}),
@@ -302,8 +302,11 @@ export default function HypothesisObservation({
                   ...PLOT_AXIS,
                   range: region.x_range,
                   title: { text: `${symbol} statistic`, standoff: 6 },
+                  // Moves the x labels down so the first one does not touch the y label "0" in the corner.
+                  ticklabelstandoff: 8,
+                  automargin: true,
                 },
-                yaxis: { ...PLOT_AXIS, range: [0, region.y_max * 1.05], title: { text: 'density', standoff: 6 } },
+                yaxis: { ...PLOT_AXIS, range: [0, region.y_max * 1.05], title: { text: 'Density', standoff: 6 }, automargin: true },
                 annotations: region.statistic_offscale ? [offscaleAnnotation(region, precision)] : [],
               }}
               config={PLOT_CONFIG}

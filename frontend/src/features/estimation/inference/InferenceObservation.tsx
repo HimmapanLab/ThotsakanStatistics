@@ -58,13 +58,16 @@ function IntervalPlot({ rows, result, range, colorOf, variable, precision, onRea
       onInitialized={onReady} onUpdate={onReady} onPurge={onPurge} />
   </>
 }
+// The class names let estimation.css thin the table as its column narrows (as the approved prototype does):
+// Method moves under the statistic, then Interval too, and Lower and Upper stack in one column.
 const INTERVAL_COLUMNS = [
-  { key: 'interval', label: 'Interval' },
-  { key: 'statistic', label: 'Statistic' },
-  { key: 'method', label: 'Method' },
+  { key: 'interval', label: 'Interval', className: 'col-interval' },
+  { key: 'statistic', label: 'Statistic', className: 'col-stat' },
+  { key: 'method', label: 'Method', className: 'col-method' },
   { key: 'estimate', label: 'Estimate', num: true },
-  { key: 'lower', label: 'Lower', num: true },
-  { key: 'upper', label: 'Upper', num: true },
+  { key: 'lower', label: 'Lower', num: true, className: 'col-lower' },
+  { key: 'upper', label: 'Upper', num: true, className: 'col-upper' },
+  { key: 'lu', label: <>Lower /<br />Upper</>, num: true, className: 'col-lu' },
 ] as const
 const CI_GROUPS = ['Mean', 'Median', 'Deviation'] as const
 const QUANTITY_CLASS: Record<string, string> = { Mean: 'q-mean', Median: 'q-median', Deviation: 'q-deviation' }
@@ -91,11 +94,16 @@ function intervalTableRows(ciRows: IntervalRow[], piRows: IntervalRow[], state: 
       q,
       cells: {
         interval: kind === 'prediction' ? 'Prediction' : 'Confidence',
-        statistic,
+        statistic: <>
+          <span className="lu-sub lu-sub-int">{kind === 'prediction' ? 'Prediction' : 'Confidence'}</span>
+          {statistic}
+          <span className="lu-sub lu-sub-method">{interval.Method}</span>
+        </>,
         method: interval.Method,
         estimate: estimate == null ? '—' : formatInferenceNumber(estimate, state.precision),
         lower: formatInferenceNumber(interval.Lower, state.precision),
         upper: formatInferenceNumber(interval.Upper, state.precision),
+        lu: <><span className="lu">{formatInferenceNumber(interval.Lower, state.precision)}</span><span className="lu">{formatInferenceNumber(interval.Upper, state.precision)}</span></>,
       },
       fx: <IntervalFx kind={kind} row={interval} sigmaEstimator={sigmaEstimator} name={(kind === 'prediction' ? 'prediction interval, ' : 'confidence interval, ') + statistic.toLowerCase()} />,
     }
@@ -113,9 +121,11 @@ function intervalLegend(rows: IntervalRow[], colorOf: (row: IntervalRow) => stri
   const items: LegendItem[] = []
   rows.forEach((row) => {
     const label = quantityLabel(row.Statistic)
-    if (seen.has(label)) return
-    seen.add(label)
-    items.push({ label: label === 'Bootstrap' || label === 'IQR' || colorOf(row) === PLOT_COLORS.pi ? 'Prediction interval' : label + ' (confidence)', kind: 'solid', color: colorOf(row) })
+    // Every prediction row has one colour and one key line, however many bases (mean, median, IQR) it has.
+    const shown = label === 'Bootstrap' || label === 'IQR' || colorOf(row) === PLOT_COLORS.pi ? 'Prediction interval' : label + ' (confidence)'
+    if (seen.has(shown)) return
+    seen.add(shown)
+    items.push({ label: shown, kind: 'solid', color: colorOf(row) })
   })
   if (estimates) items.push({ label: 'Sample estimate', kind: 'dot', color: PLOT_COLORS.text })
   return items

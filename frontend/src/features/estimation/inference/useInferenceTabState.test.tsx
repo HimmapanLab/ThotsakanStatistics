@@ -98,6 +98,10 @@ afterEach(async () => {
   vi.restoreAllMocks()
 })
 
+/** The statistic of a table row, without the small second lines (interval kind, method) that only show in a narrow table. */
+const statisticOf = (row: Element) => [...row.children[1].childNodes]
+  .filter(node => !(node instanceof HTMLElement && node.classList.contains('lu-sub'))).map(node => node.textContent).join('')
+
 describe('Inference student workflow', () => {
   it('preserves drafts and disclosure state when controls leave and return', async () => {
     await act(async () => state.setDraft({ alphaStr: '0.', ciOpen: true, selected: withBootstrap('ci.mean.boot') }))
@@ -344,7 +348,7 @@ describe('Inference student workflow', () => {
     })
     await act(async () => state.setDraft({ selected: withBootstrap('ci.mean.boot') }))
     await startRun()
-    const meanRows = [...container.querySelectorAll('[data-panel="observation"] tbody tr')].filter(row => row.children[1].textContent === 'Mean' || row.children[1].textContent === 'Mean – bootstrap')
+    const meanRows = [...container.querySelectorAll('[data-panel="observation"] tbody tr')].filter(row => statisticOf(row) === 'Mean' || statisticOf(row) === 'Mean – bootstrap')
     expect(meanRows).toHaveLength(2)
     const buttons = [...container.querySelectorAll<HTMLButtonElement>('[data-panel="observation"] tbody button.lab-fx')]
     await act(async () => buttons[2].click()) // the prediction row comes first, then mean t, then mean bootstrap
@@ -355,6 +359,21 @@ describe('Inference student workflow', () => {
     expect(popover.textContent).not.toContain('Mean · bootstrap')
     expect(container.querySelector('[data-panel="observation"] tbody')!.textContent).toContain('Bootstrap (B=500)')
     expect(panelText('observation')).not.toContain('Mean – bootstrap:')
+  })
+
+  it('names the prediction interval once in the key under the prediction plot, however many bases it has', async () => {
+    vi.mocked(inferenceApi.computePI).mockResolvedValue({
+      ...intervals(30, true),
+      table: JSON.stringify([
+        { Statistic: 'Mean', Lower: 10, Upper: 50, Method: 't (df=4)', 'Interval Type': 'Prediction' },
+        { Statistic: 'Median', Lower: 11, Upper: 49, Method: 'Normal', 'Interval Type': 'Prediction' },
+        { Statistic: 'IQR', Lower: 12, Upper: 48, Method: 'IQR', 'Interval Type': 'Prediction' },
+      ]),
+    })
+    await startRun()
+    const keys = [...container.querySelectorAll('[data-panel="observation"] ul.est-legend')]
+      .flatMap(list => [...list.querySelectorAll('li')].map(item => item.textContent))
+    expect(keys.filter(label => label === 'Prediction interval')).toHaveLength(1)
   })
 
   it('draws the observed values in the soft histogram look shared by every Statistics tab', async () => {
@@ -386,15 +405,16 @@ describe('Inference student workflow', () => {
     const firstPlot = observation.querySelector('[data-plot]')!
     expect(table.compareDocumentPosition(firstPlot) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect([...table.querySelectorAll('th')].map(cell => cell.textContent))
-      .toEqual(['Interval', 'Statistic', 'Method', 'Estimate', 'Lower', 'Upper', 'Formula'])
+      .toEqual(['Interval', 'Statistic', 'Method', 'Estimate', 'Lower', 'Upper', 'Lower /Upper', 'Formula'])
     const rows = [...table.querySelectorAll('tbody tr')] as HTMLElement[]
     expect(rows.map(row => row.children[0].textContent)).toEqual(['Prediction', 'Confidence', 'Confidence'])
-    expect(rows.map(row => row.children[1].textContent)).toEqual(['Based on the mean', 'Mean', 'Deviation'])
+    expect(rows.map(statisticOf)).toEqual(['Based on the mean', 'Mean', 'Deviation'])
     expect(rows[0].className).toContain('q-prediction')
     expect(rows[1].className).toContain('q-mean')
     expect(rows[2].className).toContain('q-deviation')
     expect(rows.every(row => row.querySelector('button.lab-fx'))).toBe(true)
     expect(rows[1].children[2].textContent).toBe('t (df=4)')
+    expect(rows[1].querySelector('.col-lu')!.textContent).toBe('29.00031.000') // stacked Lower and Upper for a narrow table
     expect(rows[1].textContent).toContain('29.000')
     expect(rows[1].textContent).toContain('31.000')
     expect(observation.textContent).toContain('95% coverage')

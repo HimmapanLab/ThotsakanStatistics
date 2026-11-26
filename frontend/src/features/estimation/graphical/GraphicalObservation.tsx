@@ -134,11 +134,13 @@ export default function GraphicalObservation({
       margin: { l: 56, r: 20, t: 12, b: 44 },
       // Touching histogram bars.
       bargap: 0.02,
-      xaxis: { ...AXIS, title: column },
+      // automargin makes room for the axis titles; a plain decimal format keeps small densities as 0.0002, not 200µ.
+      xaxis: { ...AXIS, title: { text: column, standoff: 6 }, automargin: true },
       yaxis: {
         ...AXIS,
-        title: yTitle,
-        ...(graphType === 'ECDF' ? { range: [0, 1.05] } : {}),
+        title: { text: yTitle, standoff: 6 },
+        automargin: true,
+        ...(graphType === 'ECDF' ? { range: [0, 1.05] } : { tickformat: '.6~f' }),
       },
       // The key under the plot (Legend) names every curve, so the plot draws none.
       showlegend: false,
