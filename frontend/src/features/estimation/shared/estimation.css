@@ -27,10 +27,10 @@
 .est-reset { align-self: flex-start; margin-top: 24px; }
 
 /* ── Results: capped width, a quiet "Updating…" line, the last result dimmed while the next one is on its way ── */
-.est-results { display: flex; flex-direction: column; gap: 24px; width: 100%; max-width: var(--results-max); min-width: 0; }
+.est-results { display: flex; flex-direction: column; gap: 4px; width: 100%; max-width: var(--results-max); min-width: 0; }
 .est-results[data-updating="true"] .est-body { opacity: 0.55; transition: opacity var(--dur-fast) var(--ease); }
 .est-updating { margin: 0; min-height: 20px; font-size: 0.9286rem; color: var(--ink-muted); }
-.est-body { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
+.est-body { display: flex; flex-direction: column; gap: 32px; min-width: 0; margin-top: 12px; }
 .est-section { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .est-section-head { display: flex; align-items: center; gap: 10px; }
 .est-section-head h3 { font-size: 1.125rem; font-weight: 600; flex: 1; margin: 0; }
@@ -40,7 +40,7 @@
 .est-nodata { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
 
 /* ── The results table: rules above and below, numbers right-aligned, a column for the ƒ button ── */
-.est-table-wrap { overflow-x: auto; }
+.est-table-wrap { overflow-x: auto; background: var(--surface); }
 .est-table { border-collapse: collapse; width: max-content; max-width: 100%; font-size: 1rem; }
 .est-table td, .est-table th { overflow-wrap: break-word; }
 .est-table caption { text-align: left; caption-side: top; padding-bottom: 8px; color: var(--ink-muted); font-size: 0.9286rem; }
