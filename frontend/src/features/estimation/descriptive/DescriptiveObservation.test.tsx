@@ -42,6 +42,12 @@ const headers = () => [...container.querySelectorAll('th')].map((th) => th.textC
 const rowOf = (name: string) => [...container.querySelectorAll('tbody tr')].find((tr) => tr.textContent?.includes(name))!
 
 describe('Descriptive statistics table', () => {
+  it('shows no Robust label, which Irving retired, even for a row the backend marks robust (MAD)', () => {
+    render(true)
+    expect(rowOf('MAD').textContent).not.toContain('Robust')
+    expect(container.textContent).not.toContain('Robust')
+  })
+
   it('names the columns Statistic and Normal-corrected, with a column for the formula buttons', () => {
     render(true)
     expect(headers()).toEqual(['Statistic', 'Value', 'Normal-corrected', 'Formula'])
