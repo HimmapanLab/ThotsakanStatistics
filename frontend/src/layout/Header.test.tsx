@@ -82,6 +82,14 @@ describe('top bar', () => {
     expect(container.textContent).not.toContain('Demo')
   })
 
+  it('gives the dev badge a short form for a narrow bar, and keeps the full text for a screen reader', () => {
+    render('probability')
+    const badge = container.querySelector('.tb-badge.is-warn')!
+    expect(badge.querySelector('.tb-long')!.textContent).toBe('Auth disabled (dev)')
+    expect(badge.querySelector('.tb-short')!.textContent).toBe('Dev')
+    expect(badge.querySelector('.tb-short')!.getAttribute('aria-hidden')).toBe('true')
+  })
+
   it('shows the Demo badge in demo mode', () => {
     auth.config = { enabled: false, demo: true, clientId: '', allowedDomain: '' }
     render('hypothesis')

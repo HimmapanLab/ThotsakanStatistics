@@ -3,7 +3,9 @@ import { SelectField } from '../../../components/ControlPrimitives'
 import DataStep from '../../../components/lab/DataStep'
 import LockedStep from '../../../components/lab/LockedStep'
 import StepBox from '../../../components/lab/StepBox'
+import { useData } from '../../../context/DataContext'
 import { haptic } from '../../../lib/haptics'
+import { variableOptions } from '../../../utils/columnTypes'
 import { useStepReveal } from './useStepReveal'
 import './estimation.css'
 
@@ -33,6 +35,7 @@ export default function InputsFrame({ loaded, hasData, picked, column, columns, 
   rootRef?: RefObject<HTMLDivElement | null>
 }) {
   const reveal = useStepReveal(picked)
+  const { state: data } = useData()
   const ownRef = useRef<HTMLDivElement>(null)
   const ref = rootRef ?? ownRef
   const pick = (value: string) => {
@@ -43,7 +46,7 @@ export default function InputsFrame({ loaded, hasData, picked, column, columns, 
     <div ref={ref} className="est-inputs">
       <DataStep>
         {loaded && (
-          <SelectField label="Variable" value={picked ? column : ''} onChange={pick} options={columns}
+          <SelectField label="Variable" value={picked ? column : ''} onChange={pick} options={variableOptions(columns, data.columnTypes)}
             disabled={!hasData} placeholder={hasData ? 'Pick a variable' : 'No numeric variable in this data'}
             error={picked ? columnError : undefined}
             hint={hasData ? undefined : 'Open Data and check the column types.'} />

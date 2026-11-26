@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  guessType, guessTypes, isNumericColumn, profileColumn, profileColumns, splitColumns, typeFit, typesFromLists, validTypes,
+  guessType, guessTypes, isNumericColumn, profileColumn, profileColumns, splitColumns, typeFit, typesFromLists, validTypes, variableOptions,
 } from './columnTypes'
 
 const rowsOf = (name: string, values: string[]) => values.map((value) => ({ [name]: value }))
@@ -78,5 +78,17 @@ describe('the two lists the analysis pages read', () => {
   it('turns the older two saved lists into types, with an unlisted column an ID', () => {
     const profiles = profileColumns(headers, rows)
     expect(typesFromLists(headers, profiles, ['score', 'count'], ['group'])).toEqual(types)
+  })
+})
+
+describe('variableOptions', () => {
+  it('names each column with its type, and keeps the bare name as the value', () => {
+    expect(variableOptions(['Demand', 'Holiday'], { Demand: 'Continuous', Holiday: 'Nominal' })).toEqual([
+      { value: 'Demand', label: 'Demand · Continuous' },
+      { value: 'Holiday', label: 'Holiday · Nominal' },
+    ])
+  })
+  it('shows just the name when the type is not known', () => {
+    expect(variableOptions(['Demand'])).toEqual([{ value: 'Demand', label: 'Demand' }])
   })
 })

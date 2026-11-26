@@ -11,10 +11,19 @@ import {
   type GraphicalConfig,
 } from './graphicalState'
 
+// These tests are about what the Normal overlay changes, so they start from a config without it
+// (the page itself opens with it on, as the approved design does).
 const base = (over: Partial<GraphicalConfig> = {}): GraphicalConfig => ({
   column: 'Age',
   ...DEFAULT_CONFIG,
+  addNormal: false,
   ...over,
+})
+
+describe('defaults', () => {
+  it('open with the Normal model, the KDE and the confidence band on, as the approved design does', () => {
+    expect(DEFAULT_CONFIG).toMatchObject({ addNormal: true, addKde: true, addConfBand: true })
+  })
 })
 
 describe('config shape', () => {

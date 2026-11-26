@@ -7,9 +7,10 @@ import LockedStep from './LockedStep'
 import ResultsHead from './ResultsHead'
 import StepBox from './StepBox'
 
+const loaded = vi.hoisted(() => ({ filename: 'whr.csv' }))
 vi.mock('../../context/DataContext', () => ({
   useData: () => ({
-    state: { dataset: { rows: new Array(165) }, filename: 'whr.csv', filters: { year: ['2023'] } },
+    state: { dataset: { rows: new Array(165) }, filename: loaded.filename, filters: { year: ['2023'] } },
     filteredRows: new Array(40),
   }),
 }))
@@ -79,6 +80,18 @@ describe('DataStep', () => {
     expect(container.querySelector('[data-testid="drawer"]')!.textContent).toBe('closed')
     act(() => (container.querySelector('button') as HTMLButtonElement).click())
     expect(container.querySelector('[data-testid="drawer"]')!.textContent).toBe('open')
+  })
+})
+
+describe('DataStep title', () => {
+  it('shows an example by its title, not its file name', () => {
+    loaded.filename = 'ElectricityDemand.csv'
+    try {
+      act(() => root.render(<DrawerProvider><DataStep /></DrawerProvider>))
+      expect(container.querySelector('strong')!.textContent).toBe('Electricity demand')
+    } finally {
+      loaded.filename = 'whr.csv'
+    }
   })
 })
 

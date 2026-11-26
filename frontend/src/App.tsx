@@ -98,6 +98,9 @@ function isBenchRoute(route: Route): boolean {
   return route !== 'home' && route !== 'regression'
 }
 
+/** The interval the Probability page opens with; defaultQuery puts it one standard deviation each side of the mean. */
+const OPENING_QUERY: DistQuery = { kind: 'interval', lower: 0, lowerOp: '<=', upper: 0, upperOp: '<=' }
+
 /** The first Statistics page: where "Take the tour" goes when the reader is on a page with nothing to tour. */
 const TOUR_PAGE: Route = 'statistics-graphical'
 
@@ -173,7 +176,8 @@ export default function App() {
   }, [setPrefsOpen, startTour])
 
   // ── Probability / Common Distributions state ───────────────────────────────
-  const firstDiscrete = DISTRIBUTIONS.find((d) => d.type === 'discrete')!
+  // The page opens on Normal(0, 1) asking for P(−1 ≤ X ≤ 1), as the approved design does.
+  const firstDist = DISTRIBUTIONS.find((d) => d.name === 'Normal')!
   // The distribution, parameters and query from before a refresh, when they still name a known distribution.
   const [savedProb] = useState(() => {
     const saved = loadPageState<{ modelType: 'discrete' | 'continuous'; distName: string; paramValues: Record<string, number>; query: DistQuery }>('probability', '*')
@@ -182,12 +186,12 @@ export default function App() {
       ? { modelType: dist.type as 'discrete' | 'continuous', distName: dist.name, paramValues: saved.paramValues, query: saved.query }
       : null
   })
-  const [probModelType, setProbModelType] = useState<'discrete' | 'continuous'>(savedProb?.modelType ?? 'discrete')
-  const [probDistName, setProbDistName] = useState(savedProb?.distName ?? firstDiscrete.name)
+  const [probModelType, setProbModelType] = useState<'discrete' | 'continuous'>(savedProb?.modelType ?? firstDist.type)
+  const [probDistName, setProbDistName] = useState(savedProb?.distName ?? firstDist.name)
   const [probParamValues, setProbParamValues] = useState<Record<string, number>>(
-    savedProb?.paramValues ?? Object.fromEntries(firstDiscrete.params.map((p) => [p.key, p.default]))
+    savedProb?.paramValues ?? Object.fromEntries(firstDist.params.map((p) => [p.key, p.default]))
   )
-  const [probQuery, setProbQuery] = useState<DistQuery>(() => savedProb?.query ?? defaultQuery(firstDiscrete.name, probParamValues))
+  const [probQuery, setProbQuery] = useState<DistQuery>(() => savedProb?.query ?? defaultQuery(firstDist.name, probParamValues, OPENING_QUERY))
   useSavePageState('probability', '*', { modelType: probModelType, distName: probDistName, paramValues: probParamValues, query: probQuery })
 
   const probDistParams = useMemo(() => ({
@@ -204,16 +208,11 @@ export default function App() {
   function handleDistChange(name: string) {
     const dist = DISTRIBUTIONS.find((d) => d.name === name)!
     const defaults = Object.fromEntries(dist.params.map((p) => [p.key, p.default]))
+    setProbModelType(dist.type)
     setProbDistName(name)
     setProbParamValues(defaults)
     // A query for another distribution may lie outside this one's support (x = 5 for a Beta).
     setProbQuery((query) => defaultQuery(name, defaults, query))
-  }
-
-  function handleModelTypeChange(t: 'discrete' | 'continuous') {
-    setProbModelType(t)
-    const first = DISTRIBUTIONS.find((d) => d.type === t)!
-    handleDistChange(first.name)
   }
 
   // ── Descriptive Statistics state ─────────────────────────────────────────
@@ -235,11 +234,9 @@ export default function App() {
   if (route === 'probability') {
     controls = (
       <CommonDistControls
-        modelType={probModelType}
         distName={probDistName}
         paramValues={probParamValues}
         query={probQuery}
-        onModelTypeChange={handleModelTypeChange}
         onDistChange={handleDistChange}
         onParamChange={(key, val) => {
           const dist = DISTRIBUTIONS.find((entry) => entry.name === probDistName)!
@@ -252,7 +249,7 @@ export default function App() {
           const dist = DISTRIBUTIONS.find((entry) => entry.name === probDistName)!
           const defaults = Object.fromEntries(dist.params.map((param) => [param.key, param.default]))
           setProbParamValues(defaults)
-          setProbQuery(defaultQuery(probDistName, defaults))
+          setProbQuery(defaultQuery(probDistName, defaults, probDistName === firstDist.name ? OPENING_QUERY : undefined))
         }}
       />
     )

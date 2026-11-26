@@ -153,3 +153,8 @@ export function validTypes(
     return [name, type && COLUMN_TYPES.includes(type) && typeFit(profiles[name], type).ok ? type : guessType(profiles[name])]
   }))
 }
+
+/** The options of a "Variable" select: the column's name, then its type ("Demand · Continuous"). */
+export function variableOptions(columns: readonly string[], types: Partial<ColumnTypes> = {}): { value: string; label: string }[] {
+  return columns.map((name) => ({ value: name, label: types[name] ? `${name} · ${types[name]}` : name }))
+}

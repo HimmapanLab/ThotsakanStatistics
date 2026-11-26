@@ -52,7 +52,7 @@ export const DEFAULT_CONFIG: Omit<GraphicalConfig, 'column'> = {
   kdeBandwidth: null,
   addConfBand: true,
   alpha: 0.05,
-  addNormal: false,
+  addNormal: true,
   muEstimator: DEFAULT_MU_ESTIMATOR,
   sigmaEstimator: DEFAULT_SIGMA_ESTIMATOR,
   trimParam: null,

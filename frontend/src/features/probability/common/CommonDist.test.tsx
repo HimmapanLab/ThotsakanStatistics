@@ -33,8 +33,8 @@ function renderControls(query: DistQuery, track = false, distName = 'Poisson', p
   const onQueryChange = vi.fn()
   function Harness() {
     const [current, setCurrent] = useState(query)
-    return <CommonDistControls modelType="discrete" distName={distName} paramValues={paramValues} query={track ? current : query}
-      onModelTypeChange={() => {}} onDistChange={() => {}} onParamChange={() => {}}
+    return <CommonDistControls distName={distName} paramValues={paramValues} query={track ? current : query}
+      onDistChange={() => {}} onParamChange={() => {}}
       onQueryChange={(next) => { onQueryChange(next); setCurrent(next) }} onReset={() => {}} />
   }
   act(() => root.render(<Harness />))
@@ -70,7 +70,9 @@ describe('Probability panels', () => {
   it('left panel holds no result', () => {
     renderControls(params.query)
     expect(container.textContent).not.toContain('P(X')
-    expect(container.querySelectorAll('input[type="radio"]')).toHaveLength(4) // model type, query type
+    expect(container.querySelectorAll('input[type="radio"]')).toHaveLength(2) // query type (the distribution is one select, discrete and continuous together)
+    const groups = [...container.querySelectorAll('select[id] optgroup')].map((group) => group.getAttribute('label'))
+    expect(groups).toEqual(['Continuous', 'Discrete'])
   })
 
   it('Hypergeometric mean and variance put each factor in parentheses', () => {

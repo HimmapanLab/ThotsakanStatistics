@@ -119,6 +119,7 @@ describe('Graphical: every setting updates the plot on its own', () => {
 
   it('does not ask again for a change that cannot affect the plot on screen', async () => {
     await advance()
+    await act(async () => state.updateConfig('addNormal', false))
     await act(async () => state.updateConfig('graphType', 'ECDF'))
     await advance()
     const before = calls().length
@@ -219,12 +220,12 @@ describe('Graphical: result ownership', () => {
     vi.mocked(graphicalApi.computeGraph).mockReturnValueOnce(request.promise)
     await advance()
     await act(async () => {
-      state.updateConfig('addNormal', true)
+      state.updateConfig('addNormal', false)
       state.reset()
     })
     await act(async () => request.resolve(response(99)))
     expect(state.result).toBeNull()
-    expect(state.cfg.addNormal).toBe(false)
+    expect(state.cfg.addNormal).toBe(true) // the page opens with the Normal model on
     await advance()
     expect(state.result?.summary.n).toBe(10)
   })
@@ -239,18 +240,18 @@ describe('Graphical: result ownership', () => {
     expect(state.result).toBeNull()
     await advance()
     expect(lastParams().filters).toEqual({ Site: ['A'] })
-    await act(async () => state.updateConfig('addNormal', true))
+    await act(async () => state.updateConfig('addNormal', false))
     data = { ...data, state: { ...data.state, sessionId: 'session-b', filename: 'other.csv', numericCols: ['Score'] } }
     await render()
     expect(state.result).toBeNull()
     expect(state.cfg.column).toBe('') // another dataset starts with nothing picked
-    expect(state.cfg.addNormal).toBe(false)
+    expect(state.cfg.addNormal).toBe(true) // and with the defaults
   })
 
   it('shows shared failure/retry status and retains the previous result', async () => {
     await advance()
     vi.mocked(graphicalApi.computeGraph).mockRejectedValueOnce(new Error('Service unavailable'))
-    await act(async () => state.updateConfig('addNormal', true))
+    await act(async () => state.updateConfig('addNormal', false))
     await advance()
     const text = panel('Observation').textContent!
     expect(text).toContain('Couldn’t update results')
@@ -259,7 +260,7 @@ describe('Graphical: result ownership', () => {
     expect([...panel('Observation').querySelectorAll('button')].map(button => button.textContent)).toContain('Retry')
     await act(async () => state.retry())
     expect(state.error).toBeNull()
-    expect(lastParams().add_normal).toBe(true)
+    expect(lastParams().add_normal).toBe(false)
   })
 
   it('gives an initial failure a Retry without contradictory empty guidance', async () => {

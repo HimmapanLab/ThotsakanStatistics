@@ -11,16 +11,20 @@ import { DistFx, QueryFx } from './ProbFormula'
 import { FxTop } from '../../hypothesis/ui/blocks'
 
 interface CommonDistControlsProps {
-  modelType: 'discrete' | 'continuous'
   distName: string
   paramValues: Record<string, number>
   query: DistQuery
-  onModelTypeChange: (t: 'discrete' | 'continuous') => void
   onDistChange: (name: string) => void
   onParamChange: (key: string, value: number) => void
   onQueryChange: (query: DistQuery) => void
   onReset: () => void
 }
+
+/** Every distribution in one list, the continuous ones first (Normal is where the page opens). */
+const DIST_GROUPS = (['continuous', 'discrete'] as const).map((type) => ({
+  label: type === 'continuous' ? 'Continuous' : 'Discrete',
+  options: DISTRIBUTIONS.filter((dist) => dist.type === type).map((dist) => ({ value: dist.name, label: `${dist.name} Distribution` })),
+}))
 
 const QUERY_OPS: readonly QueryOp[] = ['<=', '<', '=', '>=', '>']
 const BOUND_OPS: readonly BoundOp[] = ['<', '<=']
@@ -71,21 +75,14 @@ function textsShow(texts: { k: string; lower: string; upper: string }, query: Di
 const INCOMPLETE = 'Enter a complete number.'
 
 export default function CommonDistControls({
-  modelType,
   distName,
   paramValues,
   query,
-  onModelTypeChange,
   onDistChange,
   onParamChange,
   onQueryChange,
   onReset,
 }: CommonDistControlsProps) {
-  const availableDists = useMemo(
-    () => DISTRIBUTIONS.filter((d) => d.type === modelType),
-    [modelType]
-  )
-
   const currentDist = DISTRIBUTIONS.find((d) => d.name === distName)
   const domain = useMemo(() => queryDomain(distName, paramValues), [distName, paramValues])
 
@@ -147,11 +144,9 @@ export default function CommonDistControls({
     <form className="hp-steps" onSubmit={(event) => event.preventDefault()}>
       <StepBox n={1} title="Distribution">
         <div className="hp-stack">
-          <RadioGroup label="Model type" value={modelType} onChange={onModelTypeChange}
-            options={[{ value: 'discrete', label: 'Discrete' }, { value: 'continuous', label: 'Continuous' }]} />
           <FxTop fx={<DistFx name={distName} part="dist" />}>
             <SelectField label="Distribution" value={distName} onChange={onDistChange}
-              options={availableDists.map((dist) => ({ value: dist.name, label: `${dist.name} Distribution` }))} />
+              groups={DIST_GROUPS} />
           </FxTop>
         </div>
       </StepBox>

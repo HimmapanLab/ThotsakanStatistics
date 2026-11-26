@@ -5,7 +5,9 @@ import { DataStep, FormulaButton, LockedStep, StepBox } from '../../components/l
 import { EQUAL_VARIANCE, ONE_SAMPLE_T, ONE_WAY_ANOVA, TEST_TYPES, TWO_SAMPLE_T, type Alternative } from '../../api/hypothesis'
 import { LABELS, confidenceReadout } from '../../labels'
 import { useDrawer } from '../../context/DrawerContext'
+import { useData } from '../../context/DataContext'
 import { haptic } from '../../lib/haptics'
+import { variableOptions } from '../../utils/columnTypes'
 import GroupBuilder from './GroupBuilder'
 import { testFit } from './testFit'
 import { HYP_FORMULA_NOTE } from './ui/formulaNotes'
@@ -40,6 +42,7 @@ export default function HypothesisControls({ state }: { state: HypothesisTabStat
   const empty = state.numericCols.length === 0
   const noGroupColumns = state.categoricalCols.length === 0
   const drawer = useDrawer()
+  const { state: data } = useData()
 
   const pickVariable = (column: string) => {
     if (!picked) haptic('step')
@@ -49,7 +52,7 @@ export default function HypothesisControls({ state }: { state: HypothesisTabStat
   return (
     <form className="hp-steps" onSubmit={event => event.preventDefault()}>
       <DataStep>
-        <SelectField label="Variable" value={empty ? '' : draft.column} onChange={pickVariable} options={state.numericCols}
+        <SelectField label="Variable" value={empty ? '' : draft.column} onChange={pickVariable} options={variableOptions(state.numericCols, data.columnTypes)}
           error={errors.column && picked ? errors.column : undefined} disabled={empty}
           placeholder={empty ? (state.hasData ? '— no numeric variables —' : '— no dataset loaded —') : 'Pick a variable'}
           hint={empty ? (state.hasData ? 'Check the column types in the Data drawer.' : 'Choose data to start.') : undefined} />

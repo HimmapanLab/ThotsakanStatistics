@@ -11,7 +11,7 @@ export const MENU_OPEN_DELAY = 120
 /** How long the menu stays open after the pointer leaves, so a wobbly move does not close it. */
 export const MENU_CLOSE_DELAY = 300
 
-const LEVELS = ['tb-c-icons', 'tb-c-brand', 'tb-c-topics', 'tb-c-gutter']
+const LEVELS = ['tb-c-icons', 'tb-c-badge', 'tb-c-brand', 'tb-c-topics', 'tb-c-gutter']
 
 function setLevel(bar: HTMLElement, n: number) {
   LEVELS.forEach((name, i) => bar.classList.toggle(name, i < n))
@@ -201,7 +201,8 @@ function Header({ route, onTour }: { route: Route; onTour: () => void }) {
       )}
       {config && !config.enabled && !config.demo && (
         <span className="tb-badge is-warn" title="AUTH_DISABLED=true: login is skipped. Never use in production.">
-          Auth disabled (dev)
+          <span className="tb-long">Auth disabled (dev)</span>
+          <span className="tb-short" aria-hidden="true">Dev</span>
         </span>
       )}
       {user && config?.enabled && (
