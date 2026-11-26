@@ -139,7 +139,7 @@ describe('configForDataset', () => {
   it('keeps a valid selection and replaces a column from a previous file', () => {
     const cfg = base({ column: 'Age' })
     expect(configForDataset(cfg, ['Age', 'Weight'])).toBe(cfg)
-    expect(configForDataset(cfg, ['Score']).column).toBe('Score')
+    expect(configForDataset(cfg, ['Score']).column).toBe('') // the pick is gone: nothing is picked
   })
 
   it('clears a weights column the new dataset does not have', () => {

@@ -5,6 +5,8 @@ import type { GraphicalResponse } from '../../../api/graphical'
 import { HISTOGRAM_MARKER, PLOT_COLORS } from '../../../plot/theme'
 import GraphicalObservation from './GraphicalObservation'
 
+vi.mock('../../../context/DataContext', () => ({ useData: () => ({ state: { filename: 'sample.csv', dataset: null, filters: {} }, filteredRows: [] }) }))
+
 vi.mock('plotly.js-basic-dist-min', () => ({ default: {} }))
 vi.mock('react-plotly.js/factory', () => ({
   default: () => ({ data, layout }: { data: unknown[]; layout: unknown }) =>
@@ -26,7 +28,7 @@ afterEach(async () => {
 
 const base = { summary: { n: 20, n_unique: 4 }, warnings: [] as string[] }
 async function draw(result: GraphicalResponse, graphType: string) {
-  await act(async () => root.render(<GraphicalObservation result={result} column="Dice" graphType={graphType} hasData loaded isComputing={false} />))
+  await act(async () => root.render(<GraphicalObservation result={result} column="Dice" graphType={graphType} isComputing={false} />))
   const element = container.querySelector<HTMLElement>('[data-plot]')!
   return {
     traces: JSON.parse(element.dataset.plot!) as Record<string, any>[],
@@ -57,9 +59,20 @@ describe('Graphical observation', () => {
     }
   })
 
-  it('shows the shared empty state when there is no result yet', async () => {
-    await act(async () => root.render(<GraphicalObservation result={null} column="Dice" graphType="Histogram" hasData loaded isComputing={false} />))
-    expect(container.textContent).toContain('Choose the settings in the left panel to see results.')
+  it('keeps the last result on screen, dimmed, with a quiet Updating line while the next one is on its way', async () => {
+    const result = { ...base, histogram_data: { bins: [0, 1], counts: [4], densities: [1] } } as GraphicalResponse
+    await act(async () => root.render(<GraphicalObservation result={result} column="Dice" graphType="Histogram" isComputing />))
+    expect(container.querySelector('.est-results')!.getAttribute('data-updating')).toBe('true')
+    expect(container.querySelector('.est-updating')!.textContent).toBe('Updating…')
+    expect(container.querySelector('[data-plot]')).not.toBeNull()
+  })
+
+  it('never goes blank: a first request shows a quiet computing line, and an error offers Retry', async () => {
+    await act(async () => root.render(<GraphicalObservation result={null} column="Dice" graphType="Histogram" isComputing />))
+    expect(container.textContent).toContain('Computing the plot…')
+    await act(async () => root.render(<GraphicalObservation result={null} column="Dice" graphType="Histogram" isComputing={false} error="Service unavailable" onRetry={() => {}} />))
+    expect(container.querySelector('[role="alert"]')!.textContent).toContain('Service unavailable')
+    expect([...container.querySelectorAll('button')].map(button => button.textContent)).toContain('Retry')
   })
 
   it('draws the histogram in the soft look shared by every Statistics tab', async () => {
@@ -82,10 +95,22 @@ describe('Graphical observation', () => {
   })
 })
 
-describe('Graphical title', () => {
-  it('titles the plot with a section heading, as the other tabs, not inside the plot', async () => {
+describe('Graphical headings', () => {
+  it('names the page results by the variable, and titles the plot with a section heading, not inside the plot', async () => {
     const { layout } = await draw({ ...base, histogram_data: { bins: [0, 1, 2], counts: [4, 6], densities: [0.4, 0.6] } }, 'Histogram')
     expect(layout.title).toBeUndefined()
-    expect(container.querySelector('h3')?.textContent).toBe('Distribution of Dice')
+    expect(container.querySelector('h2')?.textContent).toBe('Dice')
+    expect(container.querySelector('.lab-output-sub')?.textContent).toContain('n = 20')
+    expect(container.querySelector('h3')?.textContent).toBe('Histogram')
+  })
+
+  it('puts the table of values before the plot, with the warnings under the table', async () => {
+    await act(async () => root.render(<GraphicalObservation result={{ ...base, histogram_data: { bins: [0, 1], counts: [4], densities: [1] },
+      normal_curve: { x: [0, 1], y: [1, 1], mu: 1, sigma: 2 }, point_estimates: { mu: 1, sigma: 2 } } as GraphicalResponse}
+      column="Dice" graphType="Histogram" isComputing={false} warnings={['A warning.']} />))
+    expect([...container.querySelectorAll('h3')].map(node => node.textContent)).toEqual(['Values', 'Histogram'])
+    const section = container.querySelector('section')!
+    expect(section.querySelector('table')).not.toBeNull()
+    expect(section.querySelector('[aria-label="Warnings"]')!.textContent).toBe('A warning.')
   })
 })

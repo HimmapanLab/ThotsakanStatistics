@@ -1,0 +1,98 @@
+/* Inputs and results of the three Statistics pages (Graphical Analysis, Descriptive Statistics, Statistical
+   Inference). Ported from the approved prototype's app.css and kit.css; every class is prefixed est- so nothing
+   collides with Tailwind or the shared lab- primitives. Colours, sizes and motion come from design/tokens.css only. */
+
+/* ── Inputs: the steps, their option rows, and the gated (greyed-out) options ── */
+.est-inputs { display: flex; flex-direction: column; gap: 0; padding-bottom: 24px; }
+.est-group { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.est-group > legend { padding: 0; margin-bottom: 6px; float: none; font-size: 0.875rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted); }
+.est-group + .est-group { margin-top: 14px; }
+.est-subhead { font-size: 0.875rem; font-weight: 600; color: var(--ink-muted); margin: 10px 0 0; }
+.est-opt { display: flex; align-items: center; gap: 8px; min-height: var(--control-h); }
+.est-check { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; cursor: pointer; font-size: 1rem; line-height: 1.4; }
+.est-check input { width: 18px; height: 18px; flex: none; margin: 0; accent-color: var(--action); cursor: pointer; }
+.est-check input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.est-gated { display: flex; flex-direction: column; }
+.est-gated .est-check { color: var(--ink-faint); cursor: not-allowed; }
+.est-gated .est-check input { cursor: not-allowed; }
+.est-why { margin: 0 0 4px 28px; font-size: 0.9286rem; line-height: 1.43; color: var(--ink-faint); }
+.est-detail { margin: 2px 0 8px 28px; }
+.est-hint { margin: 6px 0 0; font-size: 0.9286rem; line-height: 1.43; color: var(--ink-muted); }
+.est-settings { display: flex; flex-direction: column; gap: 14px; }
+.est-lbl-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.est-adv { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 6px; }
+.est-adv > summary { cursor: pointer; font-weight: 600; min-height: var(--hit-min); display: flex; align-items: center; }
+.est-adv > summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.est-error { margin: 0; font-size: 0.9286rem; color: var(--error); }
+.est-reset { align-self: flex-start; margin-top: 24px; }
+
+/* ── Results: capped width, a quiet "Updating…" line, the last result dimmed while the next one is on its way ── */
+.est-results { display: flex; flex-direction: column; gap: 4px; width: 100%; max-width: var(--results-max); min-width: 0; }
+.est-results[data-updating="true"] .est-body { opacity: 0.55; transition: opacity var(--dur-fast) var(--ease); }
+.est-updating { margin: 0; min-height: 20px; font-size: 0.9286rem; color: var(--ink-muted); }
+.est-body { display: flex; flex-direction: column; gap: 32px; min-width: 0; margin-top: 12px; }
+.est-section { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.est-section-head { display: flex; align-items: center; gap: 10px; }
+.est-section-head h3 { font-size: 1.125rem; font-weight: 600; flex: 1; margin: 0; }
+.est-note { margin: 0; font-size: 0.9286rem; color: var(--ink-muted); line-height: 1.43; }
+.est-banner { margin: 0; padding: 12px 14px; border-radius: var(--radius-sm); border: 1px solid var(--warn); background: var(--warn-bg); color: var(--ink); font-size: 0.9375rem; list-style: none; }
+.est-banner li + li { margin-top: 4px; }
+.est-nodata { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+
+/* ── The results table: rules above and below, numbers right-aligned, a column for the ƒ button ── */
+.est-table-wrap { overflow-x: auto; background: var(--surface); }
+.est-table { border-collapse: collapse; width: max-content; max-width: 100%; font-size: 1rem; }
+.est-table td, .est-table th { overflow-wrap: break-word; }
+.est-table caption { text-align: left; caption-side: top; padding-bottom: 8px; color: var(--ink-muted); font-size: 0.9286rem; }
+.est-table thead th { border-top: 2px solid var(--ink); border-bottom: 1px solid var(--ink); padding: 8px 12px; text-align: left; font-weight: 600; font-size: 0.9375rem; white-space: nowrap; }
+.est-table thead th.num { text-align: right; }
+.est-table td { padding: 7px 12px; vertical-align: baseline; }
+.est-table td:not(.num):not(.cell-fx) { min-width: 9ch; max-width: 40ch; }
+.est-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.est-table tbody tr:last-child td { border-bottom: 2px solid var(--ink); }
+.est-table tbody tr.grp td { padding-top: 14px; font-size: 0.875rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted); }
+.est-table tbody tr.q:hover td { background: var(--row-tint); }
+.est-table .cell-fx { width: 40px; padding-left: 0; padding-right: 0; text-align: center; }
+.est-table th:first-child, .est-table td:first-child { position: sticky; left: 0; z-index: 1; background: var(--surface); }
+.est-table th.cell-fx, .est-table td.cell-fx { position: sticky; right: 0; z-index: 1; background: var(--surface); }
+.est-table tbody tr.q:hover td:first-child, .est-table tbody tr.q:hover td.cell-fx { background: var(--row-tint); }
+.est-table .qname { color: var(--q, var(--ink)); font-weight: 600; }
+.est-table .qname .plain { font-weight: 400; color: var(--ink); }
+.est-table .q-data { --q: var(--q-data); } .est-table .q-mean { --q: var(--q-mean); } .est-table .q-median { --q: var(--q-median); }
+.est-table .q-deviation { --q: var(--q-deviation); } .est-table .q-prediction { --q: var(--q-prediction); }
+.est-table .q-kde { --q: var(--q-kde); } .est-table .q-normal { --q: var(--q-normal); }
+.est-tag { display: inline-flex; align-items: center; padding: 1px 7px; margin-left: 6px; border-radius: var(--radius-pill); border: 1px solid var(--line-strong); font-size: 0.875rem; font-weight: 600; color: var(--ink-muted); }
+.est-cellstack { display: inline-flex; align-items: baseline; justify-content: flex-end; gap: 6px; }
+.est-cellstack .val { order: 1; }
+
+/* ── Plots and their legend ── */
+.est-plot { width: 100%; max-width: var(--results-max); min-width: 0; }
+.est-legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 0.9286rem; color: var(--ink-muted); margin: 0; padding: 0; list-style: none; }
+.est-legend li { display: inline-flex; align-items: center; gap: 8px; }
+.est-legend .sw { width: 22px; height: 0; border-top: 2px solid var(--c, var(--ink)); }
+.est-legend .sw.dashed { border-top-style: dashed; } .est-legend .sw.dotted { border-top-style: dotted; }
+.est-legend .sw.area { width: 14px; height: 14px; border: 1px solid var(--c, var(--ink)); background: var(--c2, var(--q-data-fill)); }
+.est-legend .sw.dot { width: 10px; height: 10px; border: 0; border-radius: 50%; background: var(--c, var(--ink)); }
+.est-legend .val { font-variant-numeric: tabular-nums; color: var(--ink); }
+
+@media (max-width: 560px) {
+  .est-table { font-size: 0.9375rem; }
+  .est-table thead th { padding-left: 6px; padding-right: 6px; white-space: normal; vertical-align: bottom; }
+  .est-table td { padding-left: 6px; padding-right: 6px; }
+  .est-table .cell-fx { width: 34px; }
+  .est-table td:not(.num):not(.cell-fx) { max-width: 24ch; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .est-results[data-updating="true"] .est-body { transition: none; }
+}
+
+.est-failed { display: block; border-color: var(--error); background: var(--surface); }
+.est-failed-msg { margin: 6px 0 10px; overflow-wrap: anywhere; }
+.est-table .sub { color: var(--ink-muted); font-weight: 400; }
+
+/* Estimator tags: one colour per meaning, the same in every table (as TABLE_TAG_STYLES did). */
+.est-tag-robust { border-color: var(--q-data); background: var(--q-data-fill); color: var(--il-ink); }
+.est-tag-unbiased { border-color: var(--q-mean); color: var(--q-mean); }
+.est-tag-consistent { border-color: var(--q-kde); color: var(--q-kde); }
+.est-notation { margin: 8px 0 0; padding-left: 18px; font-size: 0.9286rem; color: var(--ink-muted); }
+.est-notation li + li { margin-top: 4px; }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useData } from '../../../context/DataContext'
 import { computeDescriptiveStats, type DescriptiveResult } from '../../../api/descriptive'
-import { DEFAULT_SELECTED, isRowVisible, parseQuantiles, visibleStatIds } from './descriptiveOptions'
+import { BASIC_TREE, DEFAULT_SELECTED, isRowVisible, parseQuantiles, visibleStatIds } from './descriptiveOptions'
 import { loadPageState, useSavePageState } from '../../../lib/pageState'
 
 const DEBOUNCE_MS = 250
@@ -35,6 +35,10 @@ export interface DescriptiveDraft {
 }
 
 export type DescriptiveFieldErrors = Partial<Record<'column' | 'quantilesRaw' | 'trimRaw' | 'winsorRaw', string>>
+
+/** The groups of basic statistics are headings, not options: they stay ticked, so each statistic under them can show. */
+const GROUP_IDS = BASIC_TREE.filter((node) => node.children).map((node) => node.id)
+const withGroups = (selected: string[]) => [...new Set([...selected, ...GROUP_IDS])]
 
 export function initialDescriptiveDraft(column = ''): DescriptiveDraft {
   return {
@@ -112,9 +116,27 @@ function requestKey(cfg: DescriptiveConfig, sessionId: string, filters: unknown)
 export function useDescriptiveTabState() {
   const { state: dataState } = useData()
   const [draft, updateDraft] = useState(() => {
-    const initial = initialDescriptiveDraft(dataState.numericCols[0])
-    return { ...initial, ...loadPageState<typeof initial>('descriptive', dataState.filename) }
+    const initial = initialDescriptiveDraft()
+    const restored = { ...initial, ...loadPageState<typeof initial>('descriptive', dataState.filename) }
+    restored.selected = withGroups(restored.selected)
+    // A saved pick that is no longer a numeric column counts as not picked.
+    return dataState.numericCols.includes(restored.column) ? restored : { ...restored, column: '' }
   })
+  // Another dataset starts with nothing picked (step gating). Declared before the save below, so the old
+  // inputs are never written under the new file's name.
+  const datasetRef = useRef(dataState.filename)
+  useEffect(() => {
+    if (datasetRef.current === dataState.filename) return
+    datasetRef.current = dataState.filename
+    updateDraft(initialDescriptiveDraft())
+    // Numbers from the other dataset must not sit on screen while this one's are on their way.
+    cancel()
+    currentKey.current = null
+    setApplied(null)
+    setError(null)
+    setIsComputing(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataState.filename])
   useSavePageState('descriptive', dataState.status === 'ready' ? dataState.filename : '', draft)
   const [applied, setApplied] = useState<AppliedDescriptive | null>(null)
   const [isComputing, setIsComputing] = useState(false)
@@ -186,9 +208,9 @@ export function useDescriptiveTabState() {
     }, DEBOUNCE_MS)
   }, [cancel, dataState.sessionId, dataState.filters])
 
-  // The panel is usable before any data arrives; pick the first variable once there is one.
+  // A variable that is not (or no longer) a numeric column of this dataset is not picked. Nothing is picked for the reader.
   useEffect(() => {
-    if (!dataState.numericCols.includes(draft.column)) updateDraft(previous => ({ ...previous, column: dataState.numericCols[0] ?? '' }))
+    if (draft.column && !dataState.numericCols.includes(draft.column)) updateDraft(previous => ({ ...previous, column: '' }))
   }, [dataState.numericCols, draft.column])
 
   // Results update automatically; submit decides whether the backend is needed.
@@ -216,8 +238,8 @@ export function useDescriptiveTabState() {
     setError(null)
     setIsComputing(false)
     // The restored defaults are submitted by the effect above; the applied result stays visible until
-    // that authoritative replacement arrives.
-    updateDraft(initialDescriptiveDraft(dataState.numericCols[0]))
+    // that authoritative replacement arrives. The picked variable stays: Reset restores options, not the pick.
+    updateDraft(previous => initialDescriptiveDraft(dataState.numericCols.includes(previous.column) ? previous.column : ''))
   }, [cancel, dataState.numericCols])
 
   const visibleRows = useMemo(() => !applied ? []
@@ -238,6 +260,7 @@ export function useDescriptiveTabState() {
     hasData,
     loaded: !!dataState.sessionId,
     numericCols: dataState.numericCols,
+    picked: !!draft.column,
     precision: dataState.displayPrecision,
     warnings,
   }
