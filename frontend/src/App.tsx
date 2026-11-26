@@ -1,13 +1,16 @@
-import { useState, Suspense, lazy, useMemo } from 'react'
+import { useState, Suspense, lazy, useMemo, useCallback, useEffect, useRef } from 'react'
 import { ErrorBoundary } from 'react-error-boundary'
-import LogoBar from './layout/LogoBar'
 import Header from './layout/Header'
-import SubHeader, { type SubTab } from './layout/SubHeader'
 import LabBench from './layout/LabBench'
-import { isStatsRoute, type Route } from './app/routes'
-import Footer from './layout/Footer'
+import { NoDataState, NoNumericState, LoadingDataState } from './layout/EmptyStates'
+import './layout/shell.css'
+import { useHashRoute, usePreferencesOpen, type Route } from './app/routes'
+import { APP_NAME, pageTitle } from './content/topics'
 import HomeTab from './features/home/HomeTab'
-import DataTab from './features/data/DataTab'
+import ComingLater from './features/later/ComingLater'
+import Settings from './components/Settings'
+import Tour, { forgetTourSeen, markTourSeen, tourSeen } from './components/Tour'
+import { useDrawer } from './context/DrawerContext'
 
 // ── Probability: Common Distributions ────────────────────────────────────────
 import CommonDistControls from './features/probability/common/CommonDistControls'
@@ -23,11 +26,6 @@ import { clampQuery, defaultQuery } from './math/queryDomain'
 
 // Lazy-loaded heavy chart components
 const CommonDistObservation = lazy(() => import('./features/probability/common/CommonDistObservation'))
-const CommonDistNotebook = lazy(() => import('./features/probability/common/CommonDistNotebook'))
-
-// ─── Navigation config ────────────────────────────────────────────────────────
-
-type TabId = 'home' | 'data' | 'probability' | 'estimation' | 'hypothesis' | 'regression'
 
 // Lazy-loaded Descriptive Statistics panels (from composite DescriptiveTab)
 import { useDescriptiveTabState } from './features/estimation/descriptive/useDescriptiveTabState'
@@ -35,8 +33,6 @@ const DescriptiveControlsSlot = lazy(() =>
   import('./features/estimation/descriptive/DescriptiveTab').then((m) => ({ default: m.ControlsSlot })))
 const DescriptiveObservationSlot = lazy(() =>
   import('./features/estimation/descriptive/DescriptiveTab').then((m) => ({ default: m.ObservationSlot })))
-const DescriptiveNotebookSlot = lazy(() =>
-  import('./features/estimation/descriptive/DescriptiveTab').then((m) => ({ default: m.NotebookSlot })))
 
 // Lazy-loaded Statistical Inference panels
 import { useInferenceTabState } from './features/estimation/inference/useInferenceTabState'
@@ -44,8 +40,6 @@ const InferenceControlsSlot = lazy(() =>
   import('./features/estimation/inference/InferenceTab').then((m) => ({ default: m.ControlsSlot })))
 const InferenceObservationSlot = lazy(() =>
   import('./features/estimation/inference/InferenceTab').then((m) => ({ default: m.ObservationSlot })))
-const InferenceNotebookSlot = lazy(() =>
-  import('./features/estimation/inference/InferenceTab').then((m) => ({ default: m.NotebookSlot })))
 
 // Lazy-loaded Hypothesis Testing panels
 import { useHypothesisTabState } from './features/hypothesis/useHypothesisTabState'
@@ -53,8 +47,6 @@ const HypothesisControlsSlot = lazy(() =>
   import('./features/hypothesis/HypothesisTab').then((m) => ({ default: m.ControlsSlot })))
 const HypothesisObservationSlot = lazy(() =>
   import('./features/hypothesis/HypothesisTab').then((m) => ({ default: m.ObservationSlot })))
-const HypothesisNotebookSlot = lazy(() =>
-  import('./features/hypothesis/HypothesisTab').then((m) => ({ default: m.NotebookSlot })))
 
 // Lazy-loaded Graphical Analysis panels
 import { useGraphicalTabState } from './features/estimation/graphical/useGraphicalTabState'
@@ -63,37 +55,6 @@ const GraphicalControlsSlot = lazy(() =>
   import('./features/estimation/graphical/GraphicalTab').then((m) => ({ default: m.ControlsSlot })))
 const GraphicalObservationSlot = lazy(() =>
   import('./features/estimation/graphical/GraphicalTab').then((m) => ({ default: m.ObservationSlot })))
-const GraphicalNotebookSlot = lazy(() =>
-  import('./features/estimation/graphical/GraphicalTab').then((m) => ({ default: m.NotebookSlot })))
-
-const SUB_TABS: Partial<Record<TabId, SubTab[]>> = {
-  probability: [
-    { key: 'common',  label: '📜 Common Distributions' },
-    { key: 'custom',  label: '✍️ Custom Distribution' },
-    { key: 'approx',  label: '🤏 Approximations' },
-  ],
-  estimation: [
-    { key: 'graphical',   label: '📊 Graphical Analysis' },
-    { key: 'descriptive', label: '🧮 Descriptive Statistics' },
-    { key: 'inference',   label: '💭 Statistical Inference' },
-  ],
-}
-
-const DEFAULT_SUB_TAB: Partial<Record<TabId, string>> = {
-  probability: 'common',
-  estimation:  'graphical',
-}
-
-// ─── Placeholders ─────────────────────────────────────────────────────────────
-
-function ComingSoon({ label }: { label: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center h-full gap-2 opacity-40">
-      <span className="text-3xl">🚧</span>
-      <span className="text-sm text-[var(--color-text-muted)]">{label} — coming soon</span>
-    </div>
-  )
-}
 
 function ChartFallback() {
   return (
@@ -131,34 +92,77 @@ function ErrorFallback({ error, resetErrorBoundary }: { error: Error, resetError
   )
 }
 
+/** The pages that sit on the bench: everything but the front page and the "Coming later" page. */
+function isBenchRoute(route: Route): boolean {
+  return route !== 'home' && route !== 'regression'
+}
+
+/** The first Statistics page: where "Take the tour" goes when the reader is on a page with nothing to tour. */
+const TOUR_PAGE: Route = 'statistics-graphical'
+
 // ─── App ────────────────────────────────────────────────────────────────────
 
 export default function App() {
   // ── Navigation ──────────────────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<TabId>('home')
-  const [subTabMap, setSubTabMap] = useState<Partial<Record<TabId, string>>>(DEFAULT_SUB_TAB)
+  const [route, setRoute] = useHashRoute()
+  const [prefsOpen, setPrefsOpen] = usePreferencesOpen()
+  const { open: drawerOpen, setOpen: setDrawerOpen } = useDrawer()
 
-  function handleTabChange(tab: string) {
-    const t = tab as TabId
-    setActiveTab(t)
-  }
+  // Data opens next to the page you are on; moving to another page closes it.
+  useEffect(() => { setDrawerOpen(false) }, [route, setDrawerOpen])
 
-  // The front page names pages by Route; this shell still has Statistics as one tab with sub-tabs.
-  function handleNavigate(route: Route) {
-    if (isStatsRoute(route)) {
-      setActiveTab('estimation')
-      setSubTabMap((prev) => ({ ...prev, estimation: route.slice('statistics-'.length) }))
+  // A new page is named in the tab title, starts at the top, and has focus on its heading for screen readers.
+  const firstRoute = useRef(true)
+  useEffect(() => {
+    document.title = route === 'home' ? APP_NAME : `${pageTitle(route)} · ${APP_NAME}`
+    if (firstRoute.current) { firstRoute.current = false; return }
+    window.scrollTo?.(0, 0)
+    const frame = window.requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>('h1')?.focus({ preventScroll: true })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [route])
+
+  // ── The tour ────────────────────────────────────────────────────────────────
+  const [tourOpen, setTourOpen] = useState(false)
+  const pendingTour = useRef(false)
+  const autoOffered = useRef(false)
+  const routeRef = useRef(route)
+  routeRef.current = route
+
+  const startTour = useCallback(() => {
+    if (isBenchRoute(routeRef.current)) {
+      setDrawerOpen(false)
+      setTourOpen(true)
     } else {
-      setActiveTab(route)
+      // The front page has no inputs to point at: go to a page that has, and start there.
+      pendingTour.current = true
+      setRoute(TOUR_PAGE)
     }
-  }
+  }, [setDrawerOpen, setRoute])
 
-  function handleSubTabChange(key: string) {
-    setSubTabMap((prev) => ({ ...prev, [activeTab]: key }))
-  }
+  useEffect(() => {
+    if (!isBenchRoute(route) || prefsOpen) return
+    if (pendingTour.current) {
+      pendingTour.current = false
+      setTourOpen(true)
+    } else if (!autoOffered.current && !tourOpen && !drawerOpen && !tourSeen()) {
+      // First visit to a page with inputs: offer the tour once
+      autoOffered.current = true
+      setTourOpen(true)
+    }
+  }, [route, prefsOpen, tourOpen, drawerOpen])
 
-  const activeSubTab = subTabMap[activeTab] ?? null
-  const subTabs = SUB_TABS[activeTab]
+  const endTour = useCallback((finished: boolean) => {
+    setTourOpen(false)
+    if (finished) markTourSeen()
+  }, [])
+
+  const replayTour = useCallback(() => {
+    forgetTourSeen()
+    setPrefsOpen(false)
+    startTour()
+  }, [setPrefsOpen, startTour])
 
   // ── Probability / Common Distributions state ───────────────────────────────
   const firstDiscrete = DISTRIBUTIONS.find((d) => d.type === 'discrete')!
@@ -215,170 +219,89 @@ export default function App() {
   const hypothesis = useHypothesisTabState()
 
   // ── Slot content resolver ──────────────────────────────────────────────────
-  let controls: React.ReactNode
-  let observation: React.ReactNode
-  let notebook: React.ReactNode
-  let footerDataset: string | undefined
+  let controls: React.ReactNode = null
+  let observation: React.ReactNode = null
 
-  // ── Probability tab ────────────────────────────────────────────────────────
-  if (activeTab === 'probability') {
-    if (activeSubTab === 'common') {
-      footerDataset = `${probDistName} Distribution`
-      controls = (
-        <CommonDistControls
-          modelType={probModelType}
-          distName={probDistName}
-          paramValues={probParamValues}
-          query={probQuery}
-          onModelTypeChange={handleModelTypeChange}
-          onDistChange={handleDistChange}
-          onParamChange={(key, val) => {
-            const dist = DISTRIBUTIONS.find((entry) => entry.name === probDistName)!
-            const values = clampParams(dist, { ...probParamValues, [key]: val })
-            setProbParamValues(values)
-            setProbQuery((query) => clampQuery(query, queryDomain(probDistName, values)))
-          }}
-          onQueryChange={setProbQuery}
-          onReset={() => {
-            const dist = DISTRIBUTIONS.find((entry) => entry.name === probDistName)!
-            const defaults = Object.fromEntries(dist.params.map((param) => [param.key, param.default]))
-            setProbParamValues(defaults)
-            setProbQuery(defaultQuery(probDistName, defaults))
-          }}
-        />
-      )
-      observation = (
-        <Suspense fallback={<ChartFallback />}>
-          <CommonDistObservation
-            distParams={probDistParams}
-            appliedParams={probAppliedParams}
-            result={probResult}
-            isLoading={probLoading}
-            error={probError}
-            onRetry={probRetry}
-            precision={dataState.displayPrecision}
-          />
-        </Suspense>
-      )
-      notebook = (
-        <Suspense fallback={<ChartFallback />}>
-          <CommonDistNotebook distParams={probDistParams} />
-        </Suspense>
-      )
-    } else {
-      controls    = <ComingSoon label="Custom Distribution" />
-      observation = <ComingSoon label="Custom Distribution" />
-      notebook    = <ComingSoon label="Custom Distribution" />
-    }
-
-  // ── Statistics tab (id 'estimation') ─────────────────────────────────────────────────────────
-  } else if (activeTab === 'estimation') {
-    if (activeSubTab === 'graphical') {
-      footerDataset = 'Graphical Analysis'
-      controls = (
-        <Suspense fallback={<ChartFallback />}>
-          <GraphicalControlsSlot state={graphical} />
-        </Suspense>
-      )
-      observation = (
-        <Suspense fallback={<ChartFallback />}>
-          <GraphicalObservationSlot state={graphical} />
-        </Suspense>
-      )
-      notebook = (
-        <Suspense fallback={<ChartFallback />}>
-          <GraphicalNotebookSlot state={graphical} />
-        </Suspense>
-      )
-    } else if (activeSubTab === 'inference') {
-      footerDataset = 'Statistical Inference'
-      controls = (
-        <Suspense fallback={<ChartFallback />}>
-          <InferenceControlsSlot state={inference} />
-        </Suspense>
-      )
-      observation = (
-        <Suspense fallback={<ChartFallback />}>
-          <InferenceObservationSlot state={inference} />
-        </Suspense>
-      )
-      notebook = (
-        <Suspense fallback={<ChartFallback />}>
-          <InferenceNotebookSlot state={inference} />
-        </Suspense>
-      )
-    } else if (activeSubTab === 'descriptive') {
-      footerDataset = 'Descriptive Statistics'
-      controls = (
-        <Suspense fallback={<ChartFallback />}>
-          <DescriptiveControlsSlot state={descriptive} />
-        </Suspense>
-      )
-      observation = (
-        <Suspense fallback={<ChartFallback />}>
-          <DescriptiveObservationSlot state={descriptive} />
-        </Suspense>
-      )
-      notebook = (
-        <Suspense fallback={<ChartFallback />}>
-          <DescriptiveNotebookSlot state={descriptive} />
-        </Suspense>
-      )
-    }
-
-  // ── Hypothesis Testing tab ─────────────────────────────────────────────────
-  } else if (activeTab === 'hypothesis') {
-    footerDataset = 'Hypothesis Testing'
+  if (route === 'probability') {
     controls = (
-      <Suspense fallback={<ChartFallback />}>
-        <HypothesisControlsSlot state={hypothesis} />
-      </Suspense>
+      <CommonDistControls
+        modelType={probModelType}
+        distName={probDistName}
+        paramValues={probParamValues}
+        query={probQuery}
+        onModelTypeChange={handleModelTypeChange}
+        onDistChange={handleDistChange}
+        onParamChange={(key, val) => {
+          const dist = DISTRIBUTIONS.find((entry) => entry.name === probDistName)!
+          const values = clampParams(dist, { ...probParamValues, [key]: val })
+          setProbParamValues(values)
+          setProbQuery((query) => clampQuery(query, queryDomain(probDistName, values)))
+        }}
+        onQueryChange={setProbQuery}
+        onReset={() => {
+          const dist = DISTRIBUTIONS.find((entry) => entry.name === probDistName)!
+          const defaults = Object.fromEntries(dist.params.map((param) => [param.key, param.default]))
+          setProbParamValues(defaults)
+          setProbQuery(defaultQuery(probDistName, defaults))
+        }}
+      />
     )
     observation = (
       <Suspense fallback={<ChartFallback />}>
-        <HypothesisObservationSlot state={hypothesis} />
+        <CommonDistObservation
+          distParams={probDistParams}
+          appliedParams={probAppliedParams}
+          result={probResult}
+          isLoading={probLoading}
+          error={probError}
+          onRetry={probRetry}
+          precision={dataState.displayPrecision}
+        />
       </Suspense>
     )
-    notebook = (
-      <Suspense fallback={<ChartFallback />}>
-        <HypothesisNotebookSlot state={hypothesis} />
-      </Suspense>
-    )
-
-  // ── Other tabs ─────────────────────────────────────────────────────────────
-  } else if (activeTab !== 'home') {
-    const label = activeTab.charAt(0).toUpperCase() + activeTab.slice(1)
-    controls    = <ComingSoon label={label} />
-    observation = <ComingSoon label={label} />
-    notebook    = <ComingSoon label={label} />
+  } else if (route === 'statistics-graphical') {
+    controls = <Suspense fallback={<ChartFallback />}><GraphicalControlsSlot state={graphical} /></Suspense>
+    observation = <Suspense fallback={<ChartFallback />}><GraphicalObservationSlot state={graphical} /></Suspense>
+  } else if (route === 'statistics-descriptive') {
+    controls = <Suspense fallback={<ChartFallback />}><DescriptiveControlsSlot state={descriptive} /></Suspense>
+    observation = <Suspense fallback={<ChartFallback />}><DescriptiveObservationSlot state={descriptive} /></Suspense>
+  } else if (route === 'statistics-inference') {
+    controls = <Suspense fallback={<ChartFallback />}><InferenceControlsSlot state={inference} /></Suspense>
+    observation = <Suspense fallback={<ChartFallback />}><InferenceObservationSlot state={inference} /></Suspense>
+  } else if (route === 'hypothesis') {
+    controls = <Suspense fallback={<ChartFallback />}><HypothesisControlsSlot state={hypothesis} /></Suspense>
+    observation = <Suspense fallback={<ChartFallback />}><HypothesisObservationSlot state={hypothesis} /></Suspense>
   }
 
-  // ── Home/Data tabs use full-width layout instead of LabBench ──────────────
-  const isHome = activeTab === 'home'
-  const isFullWidth = isHome || activeTab === 'data'
+  // Before there is anything to analyse the results say so, in place of the page's own results.
+  // Probability needs no data.
+  if (isBenchRoute(route) && route !== 'probability') {
+    if (!dataState.dataset) observation = dataState.status === 'loading' ? <LoadingDataState /> : <NoDataState />
+    else if (dataState.numericCols.length === 0) observation = <NoNumericState />
+  }
+
+  let content: React.ReactNode
+  if (route === 'home') content = <HomeTab onNavigate={setRoute} />
+  else if (route === 'regression') content = <ComingLater onBack={() => setRoute('home')} />
+  else content = <LabBench route={route} controls={controls} observation={observation} />
 
   return (
-    <div className="flex flex-col h-full bg-[var(--color-bg-base)] text-[var(--color-text)]">
-      <LogoBar />
-      <Header activeTab={activeTab} onTabChange={handleTabChange} />
-      {!isFullWidth && (
-        <SubHeader
-          subTabs={subTabs}
-          activeSubTab={activeSubTab ?? undefined}
-          onSubTabChange={handleSubTabChange}
-        />
-      )}
-      <div className="flex-1 overflow-hidden relative flex flex-col">
-        <ErrorBoundary fallbackRender={({ error, resetErrorBoundary }) => <ErrorFallback error={error as Error} resetErrorBoundary={resetErrorBoundary} />} onReset={() => setActiveTab('home')}>
-          {isHome
-            ? <HomeTab onNavigate={handleNavigate} />
-            : activeTab === 'data'
-              ? <DataTab />
-              : <LabBench controls={controls} observation={observation} notebook={notebook} />
-          }
-        </ErrorBoundary>
+    <div className="app-root">
+      {/* The page behind the Preferences sheet cannot be reached while the sheet is open. */}
+      <div className="app-main" inert={prefsOpen}>
+        <Header route={route} onTour={startTour} />
+        <div className="app-stage">
+          <ErrorBoundary
+            fallbackRender={({ error, resetErrorBoundary }) => <ErrorFallback error={error as Error} resetErrorBoundary={resetErrorBoundary} />}
+            onReset={() => setRoute('home')}
+            resetKeys={[route]}
+          >
+            {content}
+          </ErrorBoundary>
+        </div>
       </div>
-      <Footer dataset={footerDataset} />
+      <Settings open={prefsOpen} onClose={() => setPrefsOpen(false)} onReplayTour={replayTour} />
+      <Tour open={tourOpen} onClose={endTour} />
     </div>
   )
 }
