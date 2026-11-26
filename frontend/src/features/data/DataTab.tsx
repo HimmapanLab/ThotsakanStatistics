@@ -4,6 +4,7 @@
 import { useRef, useCallback, useState } from 'react'
 import { useData } from '../../context/DataContext'
 import ExampleDatasets from './ExampleDatasets'
+import { PRECISION_MAX, PRECISION_MIN } from '../../utils/formatNumber'
 
 // ─── Drop Zone ────────────────────────────────────────────────────────────────
 
@@ -343,7 +344,6 @@ function DataPreview() {
 
 function PrecisionControl() {
   const { state, clearData, setPrecision } = useData()
-  if (!state.dataset) return null
 
   return (
     <div className="flex items-center gap-4">
@@ -355,19 +355,19 @@ function PrecisionControl() {
           className="rounded px-2 py-1 text-xs bg-[var(--color-bg-input)] border border-[var(--color-border-md)]
             text-[var(--color-text)] cursor-pointer focus:outline-none focus:border-[var(--color-accent)]"
         >
-          {[2, 3, 4, 5, 6].map((p) => (
+          {Array.from({ length: PRECISION_MAX - PRECISION_MIN + 1 }, (_, i) => PRECISION_MIN + i).map((p) => (
             <option key={p} value={p}>{p} decimal places</option>
           ))}
         </select>
       </div>
-      <button
+      {state.dataset && <button
         type="button"
         onClick={clearData}
         className="ml-auto px-3 py-1 rounded text-xs border border-[var(--color-border-md)]
           text-[var(--color-text-muted)] hover:text-red-400 hover:border-red-400/50 transition-colors cursor-pointer"
       >
         🗑 Remove dataset
-      </button>
+      </button>}
     </div>
   )
 }
@@ -397,6 +397,7 @@ export default function DataTab() {
           ? <>
               <DropZone />
               <ExampleDatasets />
+              <PrecisionControl />
             </>
           : (
             <div>

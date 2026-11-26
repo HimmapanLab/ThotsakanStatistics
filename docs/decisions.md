@@ -59,11 +59,11 @@ browser. Nothing is under 12 px at any size, plots included.
 ### Display precision — 2026-11-26
 Every number on screen (tables, legends, plot hovers, PDF export) follows one rule. A value shows *p*
 decimals (*p* from 2 to 6, default 4, set in Preferences and saved per browser). A value that is not zero but
-would round to zero shows in scientific notation with *p* significant digits (1.234e−5), so a tiny p-value is
+would round to zero shows in scientific notation with *p* significant digits (1.234e-5), so a tiny p-value is
 never shown as 0.0000. Counts (n, B, rows, whole-number degrees of freedom) show without decimals. A missing
 value is "—". CSV export keeps the full value.
 *Why:* the tabs each formatted numbers their own way, so the same p-value read 0.0000 in one place and
-1.2e−5 in another.
+1.2e-5 in another.
 *Where:* `frontend/src/utils/formatNumber.ts`.
 
 ---

@@ -13,6 +13,7 @@ import { downloadCSV } from '../../../utils/exportCSV'
 import { downloadPDF } from '../../../utils/exportPDF'
 import { exportFilename } from '../../../utils/exportFilename'
 import { useChartRegistry } from '../../../hooks/useChartRegistry'
+import { formatAll, formatNumber } from '../../../utils/formatNumber'
 
 const Plot = createPlotlyComponent(Plotly)
 
@@ -38,7 +39,7 @@ const LAYOUT_BASE = baseLayout({
 })
 const AXIS = PLOT_AXIS
 
-function buildDiscreteChart(result: DistResult, query: DistQuery) {
+function buildDiscreteChart(result: DistResult, query: DistQuery, precision: number) {
   const ks = result.ks ?? []
   const probs = result.probs ?? []
   return {
@@ -48,7 +49,8 @@ function buildDiscreteChart(result: DistResult, query: DistQuery) {
       type: 'bar' as const,
       marker: { color: ks.map((k) => queryIncludes(query, k) ? PLOT_COLORS.highlight : PLOT_COLORS.inactive) },
       name: 'P(X = k)',
-      hovertemplate: 'k=%{x}<br>P(X=k)=%{y:.4f}<extra></extra>',
+      customdata: formatAll(probs, precision),
+      hovertemplate: 'k=%{x}<br>P(X=k)=%{customdata}<extra></extra>',
     }],
     layout: {
       ...LAYOUT_BASE,
@@ -103,7 +105,7 @@ function buildContinuousChart(result: DistResult, query: DistQuery, precision: n
         mode: 'none' as const,
         fill: 'tozeroy' as const,
         fillcolor: PLOT_COLORS.highlightFill,
-        name: `${queryLabel(query)} = ${result.queryResult.toFixed(precision)}`,
+        name: `${queryLabel(query)} = ${formatNumber(result.queryResult, precision)}`,
         showlegend: true,
         hoverinfo: 'skip' as const,
       }] : []),
@@ -160,18 +162,18 @@ export default function CommonDistObservation({ distParams, appliedParams, resul
 
   const handleExportPDF = useCallback(async () => {
     if (!result) return
-    const meanStr = typeof result.theorMean === 'number' ? result.theorMean.toFixed(precision) : String(result.theorMean)
-    const varStr  = typeof result.theorVariance === 'number' ? result.theorVariance.toFixed(precision) : String(result.theorVariance)
+    const meanStr = typeof result.theorMean === 'number' ? formatNumber(result.theorMean, precision) : String(result.theorMean)
+    const varStr  = typeof result.theorVariance === 'number' ? formatNumber(result.theorVariance, precision) : String(result.theorVariance)
     await downloadPDF({
       charts: registry.charts,
       title: `${distName} Distribution`,
-      subtitle: `Query: ${probabilityLabel} = ${result.queryResult.toFixed(precision)}`,
+      subtitle: `Query: ${probabilityLabel} = ${formatNumber(result.queryResult, precision)}`,
       stats: [
         { label: 'Distribution', value: distName },
         { label: 'Type',         value: dist?.type === 'discrete' ? 'Discrete' : 'Continuous' },
         { label: 'Mean E[X]',    value: meanStr },
         { label: 'Variance',     value: varStr },
-        { label: probabilityLabel, value: result.queryResult.toFixed(precision) },
+        { label: probabilityLabel, value: formatNumber(result.queryResult, precision) },
         ...Object.entries(paramValues).map(([k, v]) => ({ label: k, value: String(v) })),
       ],
       filename: exportFilename(`${baseName}-report`, 'pdf', 'distribution'),
@@ -186,15 +188,15 @@ export default function CommonDistObservation({ distParams, appliedParams, resul
     return [
       {
         label: 'Mean',
-        value: typeof result.theorMean === 'number' ? result.theorMean.toFixed(precision) : String(result.theorMean),
+        value: typeof result.theorMean === 'number' ? formatNumber(result.theorMean, precision) : String(result.theorMean),
       },
       {
         label: 'Variance',
-        value: typeof result.theorVariance === 'number' ? result.theorVariance.toFixed(precision) : String(result.theorVariance),
+        value: typeof result.theorVariance === 'number' ? formatNumber(result.theorVariance, precision) : String(result.theorVariance),
       },
       {
         label: probabilityLabel,
-        value: result.queryResult.toFixed(precision),
+        value: formatNumber(result.queryResult, precision),
         highlight: true,
       },
     ]
@@ -203,7 +205,7 @@ export default function CommonDistObservation({ distParams, appliedParams, resul
   const { traces, layout } = useMemo(() => {
     if (!dist || !result) return { traces: [], layout: LAYOUT_BASE }
     return dist.type === 'discrete'
-      ? buildDiscreteChart(result, query)
+      ? buildDiscreteChart(result, query, precision)
       : buildContinuousChart(result, query, precision)
   }, [dist, result, query, precision])
 

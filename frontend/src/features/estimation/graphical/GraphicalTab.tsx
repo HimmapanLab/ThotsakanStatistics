@@ -22,7 +22,7 @@ export function ObservationSlot({ state }: SlotProps) {
   return (
     <div className="analysis-panel flex flex-col min-h-0">
       <Status state={state} warnings />
-      {(!state.error || state.result) && <GraphicalObservation result={state.result} column={state.column} graphType={state.graphType}
+      {(!state.error || state.result) && <GraphicalObservation result={state.result} column={state.column} graphType={state.graphType} precision={state.precision}
         hasData={state.hasData} loaded={!!state.sessionId} isComputing={state.isComputing} />}
     </div>
   )

@@ -3,6 +3,7 @@ import type { HypothesisResponse } from '../../api/hypothesis';
 import ResultTable from '../../components/ResultTable';
 import { EmptyState } from '../../components/StatusBanner';
 import { Row, Section } from '../../components/notebook/NotebookParts';
+import { formatCell, formatCount, formatDof, formatNumber } from '../../utils/formatNumber';
 
 interface HypothesisNotebookProps {
   result: HypothesisResponse | null;
@@ -19,21 +20,10 @@ function parseTable(result: HypothesisResponse | null): Record<string, unknown>[
 }
 
 /**
- * The result table is not all numeric: pingouin returns `CI95` as an array and
- * `BF10` as a string, and the ANOVA "Within" row is all nulls. A blanket
- * numeric format would print NaN across three columns.
+ * pingouin's result table, as returned: one row per test (two for ANOVA), no statistic types.
+ * It is not all numeric (`CI95` is an array, `BF10` a string, the ANOVA "Within" row all nulls),
+ * so each cell goes through `formatCell`.
  */
-function formatCell(value: unknown, precision: number): string {
-  if (value === null || value === undefined) return '–';
-  if (typeof value === 'number') {
-    if (value !== 0 && Math.abs(value) < 10 ** -precision) return value.toExponential(precision);
-    return Number.isInteger(value) ? String(value) : value.toFixed(precision);
-  }
-  if (Array.isArray(value)) return `[${value.map(item => formatCell(item, precision)).join(', ')}]`;
-  return String(value);
-}
-
-/** pingouin's result table, as returned: one row per test (two for ANOVA), no statistic types. */
 function RawTable({ rows, precision }: { rows: Record<string, unknown>[]; precision: number }) {
   if (rows.length === 0) return null;
   const columns = Object.keys(rows[0]).map((key) => ({ key, label: key, align: 'right' as const }));
@@ -47,9 +37,9 @@ export default function HypothesisNotebook({ result, precision }: HypothesisNote
   if (!result) return <EmptyState loaded hasData compact />;
 
   const region = result.rejection_region;
-  const dofLabel = region.dof.map((d) => formatCell(d, precision)).join(', ');
-  const crit = region.critical_values.map((c) => formatCell(c, precision));
-  const critLabel = region.tail === 'two-sided' ? `±${formatCell(Math.abs(region.critical_values[1]), precision)}` : crit.join(', ');
+  const dofLabel = region.dof.map((d) => formatDof(d, precision)).join(', ');
+  const crit = region.critical_values.map((c) => formatNumber(c, precision));
+  const critLabel = region.tail === 'two-sided' ? `±${formatNumber(Math.abs(region.critical_values[1]), precision)}` : crit.join(', ');
 
   return (
     <div>
@@ -59,20 +49,20 @@ export default function HypothesisNotebook({ result, precision }: HypothesisNote
       </Section>
 
       <Section title="Result">
-        <Row label="Statistic" value={formatCell(result.statistic, precision)} />
+        <Row label="Statistic" value={formatNumber(result.statistic, precision)} />
         <Row label="Degrees of freedom" value={dofLabel} />
         <Row label="Critical boundary" value={critLabel} />
         <Row label="Significance level α" value={result.alpha} />
-        <Row label="p-value" value={formatCell(result.p_value, precision)} />
+        <Row label="p-value" value={formatNumber(result.p_value, precision)} />
       </Section>
 
       {result.group_summary && result.group_summary.length > 0 && (
         <Section title="Groups">
           {result.group_summary.map((group, index) => <div key={index} className="mb-3">
             <h4 className="break-words text-xs font-semibold text-[var(--color-text)]">{group.name}</h4>
-            <Row label="Sample size n" value={group.n} />
-            <Row label="Mean" value={formatCell(group.mean, precision)} />
-            <Row label="Standard deviation" value={formatCell(group.sd, precision)} />
+            <Row label="Sample size n" value={formatCount(group.n)} />
+            <Row label="Mean" value={formatNumber(group.mean, precision)} />
+            <Row label="Standard deviation" value={formatNumber(group.sd, precision)} />
           </div>)}
         </Section>
       )}
@@ -81,7 +71,7 @@ export default function HypothesisNotebook({ result, precision }: HypothesisNote
           <summary className="mb-2 cursor-pointer text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)]">Detailed output</summary>
           <RawTable rows={rows} precision={precision} />
           <p className="mt-2 text-xs text-[var(--color-text-muted)]">
-            Values use up to {precision} decimal places; very small values use scientific notation.
+            Values use {precision} decimal places; a value too small to show that way uses scientific notation.
             Any CI95 interval has 95% confidence, regardless of α.
           </p>
         </details>

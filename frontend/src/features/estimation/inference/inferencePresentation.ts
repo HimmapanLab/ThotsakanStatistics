@@ -1,4 +1,5 @@
 import type { IntervalsResponse } from '../../../api/inference'
+import { formatNumber } from '../../../utils/formatNumber'
 
 export type IntervalRow = { Statistic: string; Lower: number | null; Upper: number | null; Method: string; 'Interval Type'?: string }
 export function parseIntervalRows(result?: IntervalsResponse | null): IntervalRow[] {
@@ -23,7 +24,8 @@ export function pointEstimate(statistic: string, estimates: IntervalsResponse['p
   const label = quantityLabel(statistic)
   return label === 'Mean' ? estimates.mean : label === 'Median' ? estimates.median : label === 'Deviation' ? estimates.deviation : null
 }
-export const formatInferenceNumber = (value: number | null | undefined, precision: number) => value == null || !Number.isFinite(value) ? 'Unavailable' : value.toFixed(precision)
+/** The shared display-precision rule; a value the server could not compute shows as "—". */
+export const formatInferenceNumber = (value: number | null | undefined, precision: number) => formatNumber(value, precision)
 export const coveragePercent = (value: number) => (value * 100).toLocaleString(undefined, { maximumFractionDigits: 4 }) + '%'
 export function intervalRange(values: (number | null)[]): [number, number] | undefined {
   const finite = values.filter((value): value is number => value !== null && Number.isFinite(value))

@@ -7,6 +7,7 @@ import { EmptyState } from '../../../components/StatusBanner'
 import { Formula, Row, Section } from '../../../components/notebook/NotebookParts'
 import MathFormula from '../../../components/MathFormula'
 import { ADVANCED_GROUPS, BASIC_TREE, visibleStatIds } from './descriptiveOptions'
+import { formatNumber } from '../../../utils/formatNumber'
 
 const LABELS: Record<string, string> = Object.fromEntries([
   ...BASIC_TREE.flatMap((node) => [node, ...(node.children ?? [])]),
@@ -78,7 +79,7 @@ export default function DescriptiveNotebook({ result, config, precision, hasData
   if (!result || !config) return <EmptyState loaded={loaded} hasData={hasData} compact />
 
   const { summary } = result
-  const fmt = (value: number) => value.toFixed(precision)
+  const fmt = (value: number | null | undefined) => formatNumber(value, precision)
   const stdRow = result.rows.find((row) => row.statId === 'std_dev_1' || row.measure === 'Std (ddof=1)')
   // c₄(n) is a fixed constant of the method, shown at 6 decimals whatever the display precision.
   const c4n = stdRow?.consistencyCorr != null && stdRow.value != null && stdRow.consistencyCorr !== 0
