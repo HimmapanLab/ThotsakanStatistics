@@ -4,7 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { hypothesisApi, ONE_SAMPLE_T, ONE_WAY_ANOVA, TWO_SAMPLE_T, type HypothesisResponse } from '../../api/hypothesis';
 import { useHypothesisTabState, type HypothesisTabState } from './useHypothesisTabState';
 import HypothesisControls from './HypothesisControls';
-import { NotebookSlot, ObservationSlot } from './HypothesisTab';
+import { ObservationSlot } from './HypothesisTab';
+import { DrawerProvider } from '../../context/DrawerContext';
+import * as haptics from '../../lib/haptics';
 
 vi.mock('react-plotly.js', () => ({ default: () => null }));
 
@@ -49,7 +51,12 @@ function Harness({ controls = true }: { controls?: boolean }) {
   return controls ? <HypothesisControls state={state} /> : null;
 }
 async function render(controls = true) {
-  await act(async () => root.render(<Harness controls={controls} />));
+  await act(async () => root.render(<DrawerProvider><Harness controls={controls} /></DrawerProvider>));
+}
+/** The user picks the variable (step 1); the later steps open and the first result is requested. */
+async function pick(column = 'Breath') {
+  await act(async () => state.setDraft({ column }));
+  await advance();
 }
 async function setNull(value = '30') {
   await act(async () => state.setDraft({ mu0Str: value }));
@@ -68,6 +75,7 @@ beforeEach(async () => {
   root = createRoot(container);
   vi.spyOn(hypothesisApi, 'runTest').mockResolvedValue(response());
   await render();
+  await pick();
 });
 afterEach(async () => {
   await act(async () => root.unmount());
@@ -77,6 +85,55 @@ afterEach(async () => {
 });
 
 describe('Hypothesis student workflow', () => {
+  it('opens with only step 1: the later steps are locked, nothing is sent, and the variable is empty', async () => {
+    data = { ...data, state: { ...data.state, sessionId: 'session-b', filename: 'new.csv' } };
+    vi.mocked(hypothesisApi.runTest).mockClear();
+    await render();
+    expect(state.picked).toBe(false);
+    expect(state.draft.column).toBe('');
+    const titles = [...container.querySelectorAll('h2')].map((heading) => heading.textContent);
+    expect(titles).toEqual(['Data', 'Test (opens after step 1)', 'Settings (opens after step 2)']);
+    expect(container.querySelectorAll('.is-locked')).toHaveLength(2);
+    expect(container.querySelector('select')!.value).toBe('');
+    expect(container.textContent).not.toContain('Significance level');
+    await advance();
+    expect(hypothesisApi.runTest).not.toHaveBeenCalled();
+  });
+
+  it('opens steps 2 and 3 when a variable is picked, buzzes once for the unlock, and keeps them open afterwards', async () => {
+    data = { ...data, state: { ...data.state, sessionId: 'session-b', filename: 'new.csv' } };
+    await render();
+    const haptic = vi.spyOn(haptics, 'haptic').mockReturnValue(true);
+    const select = container.querySelector('select')!;
+    await act(async () => {
+      select.value = 'Smoke';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    expect(haptic).toHaveBeenCalledTimes(1);
+    expect(haptic).toHaveBeenCalledWith('step');
+    expect(container.querySelectorAll('.is-locked')).toHaveLength(0);
+    expect(container.querySelectorAll('.is-new')).toHaveLength(2);
+    // Changing the variable later is not an unlock: no buzz, and the steps stay open.
+    await act(async () => {
+      select.value = 'Breath';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    expect(haptic).toHaveBeenCalledTimes(1);
+    expect(container.textContent).toContain('Significance level α');
+    expect(container.querySelectorAll('.is-locked')).toHaveLength(0);
+    await act(async () => vi.advanceTimersByTimeAsync(450));
+    expect(container.querySelectorAll('.is-new')).toHaveLength(0);
+  });
+
+  it('does not animate or buzz for a variable that was already picked when the controls mounted', async () => {
+    const haptic = vi.spyOn(haptics, 'haptic').mockReturnValue(true);
+    await render(false);
+    await render(true);
+    expect(container.querySelectorAll('.is-new')).toHaveLength(0);
+    expect(container.querySelectorAll('.is-locked')).toHaveLength(0);
+    expect(haptic).not.toHaveBeenCalled();
+  });
+
   it('shows the full panel without a dataset, with the variable disabled', async () => {
     data = { ...data, state: { ...data.state, status: 'idle' as never, sessionId: null as never, filename: '', dataset: null as never, numericCols: [] } };
     vi.mocked(hypothesisApi.runTest).mockClear();
@@ -84,13 +141,13 @@ describe('Hypothesis student workflow', () => {
     const select = [...container.querySelectorAll('select')][0];
     expect(select.disabled).toBe(true);
     expect(container.textContent).toContain('— no dataset loaded —');
-    expect(container.textContent).toContain('Test method');
-    expect(container.textContent).toContain('Upload a CSV file in the Data tab.');
-    expect(container.textContent).not.toContain('Open Data');
+    expect(container.textContent).toContain('No data loaded');
+    expect(container.textContent).toContain('Choose data to start.');
+    expect([...container.querySelectorAll('h2')].map((heading) => heading.textContent?.replace(/ \(.*\)$/, ''))).toEqual(['Data', 'Test', 'Settings']);
     expect(hypothesisApi.runTest).not.toHaveBeenCalled();
   });
 
-  it('calculates on its own with mu0 = 0 and has no Run or Reveal step', async () => {
+  it('calculates on its own once a variable is picked, with mu0 = 0 and no Run or Reveal step', async () => {
     expect(hypothesisApi.runTest).toHaveBeenCalledTimes(1);
     expect(lastRequest()).toMatchObject({ test_type: ONE_SAMPLE_T, column: 'Breath', mu0: 0, alpha: 0.05 });
     expect(state.result).not.toBeNull();
@@ -204,6 +261,8 @@ describe('Hypothesis student workflow', () => {
     data = { ...data, state: { ...data.state, sessionId: 'session-b', filename: 'new.csv' } };
     await render();
     expect(state.draft.mu0Str).toBe('0');
+    expect(state.draft.column).toBe('');
+    expect(state.picked).toBe(false);
   });
 
   it('retries the failed configuration without losing valid settings', async () => {
@@ -222,26 +281,55 @@ describe('Hypothesis student workflow', () => {
 describe('Hypothesis panels', () => {
   function Slots() {
     state = useHypothesisTabState();
-    return <>
+    return <DrawerProvider>
       <div data-panel="controls"><HypothesisControls state={state} /></div>
       <div data-panel="observation"><ObservationSlot state={state} /></div>
-      <div data-panel="notebook"><NotebookSlot state={state} /></div>
-    </>;
+    </DrawerProvider>;
   }
   const panel = (name: string) => container.querySelector(`[data-panel="${name}"]`) as HTMLElement;
 
-  it('shows backend warnings above the plot, not in the notebook', async () => {
+  it('shows backend warnings under the test result table, above the plot', async () => {
     vi.mocked(hypothesisApi.runTest).mockResolvedValue({ ...response(), warnings: ['Group 2 has n < 5'] });
     await act(async () => root.render(<Slots />));
-    expect(panel('observation').querySelector('[aria-label="Warnings"]')?.textContent).toContain('Group 2 has n < 5');
-    expect(panel('notebook').textContent).not.toContain('Group 2 has n < 5');
+    await pick();
+    const warnings = panel('observation').querySelector('[aria-label="Warnings"]') as HTMLElement;
+    expect(warnings.textContent).toContain('Group 2 has n < 5');
+    expect(warnings.closest('section')?.querySelector('h3')?.textContent).toBe('Test result');
+  });
+
+  it('asks for a variable in the results until one is picked, then shows the tables before the plot', async () => {
+    data = { ...data, state: { ...data.state, sessionId: 'session-b', filename: 'new.csv' } };
+    await act(async () => root.render(<Slots />));
+    expect(panel('observation').textContent).toContain('Pick a variable to start');
+    await pick();
+    expect(panel('observation').textContent).not.toContain('Pick a variable to start');
+    const headings = [...panel('observation').querySelectorAll('h3')].map((heading) => heading.textContent);
+    expect(headings.indexOf('Test result')).toBeGreaterThan(-1);
+    expect(headings.findIndex((text) => text?.startsWith('Null distribution'))).toBeGreaterThan(headings.indexOf('Test result'));
+  });
+
+  it('dims the last result and says Updating while the next one loads, and never blanks it', async () => {
+    await act(async () => root.render(<Slots />));
+    await pick();
+    expect(panel('observation').querySelector('.hp-out')?.className).not.toContain('is-updating');
+    const next = pending();
+    vi.mocked(hypothesisApi.runTest).mockReturnValueOnce(next.promise);
+    await setNull('31');
+    await advance();
+    expect(panel('observation').querySelector('.hp-out')?.className).toContain('is-updating');
+    expect(panel('observation').textContent).toContain('Updating…');
+    expect(panel('observation').textContent).toContain('Test result');
+    await act(async () => next.resolve(response(3)));
+    expect(panel('observation').querySelector('.hp-out')?.className).not.toContain('is-updating');
   });
 
   it('never shows the settings-changed message or filler sentences', async () => {
     await act(async () => root.render(<Slots />));
+    await pick();
     await setNull('12');
     expect(container.textContent).not.toContain('Settings changed');
     expect(panel('controls').textContent).not.toContain('Results update automatically');
     expect(panel('controls').textContent).not.toContain('Compare one population mean');
+    expect(panel('observation').textContent).not.toContain('Reject');
   });
 });
