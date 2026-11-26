@@ -6,6 +6,7 @@ import {
   useContext,
   useReducer,
   useCallback,
+  useMemo,
   type ReactNode,
 } from 'react'
 import { parseFile, extractNumeric, uniqueValues, type ParsedDataset } from '../utils/parseFile'
@@ -157,9 +158,13 @@ const DataContext = createContext<DataContextValue | null>(null)
 export function DataProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState)
 
-  const filteredRows = state.dataset
+  // Memoized: a new array on every render made every consumer recompute, and froze the page on large files.
+  const filteredRows = useMemo(() => state.dataset
     ? applyFilters(state.dataset.rows, state.filters)
-    : []
+    : [], [state.dataset, state.filters])
+
+  // One sorted list of categories per column and dataset, computed the first time it is asked for.
+  const uniqueCache = useMemo(() => new Map<string, string[]>(), [state.dataset])
 
   const loadFile = useCallback(async (file: File) => {
     dispatch({ type: 'LOADING' })
@@ -210,8 +215,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const getNumericData = useCallback((col: string) =>
     state.dataset ? extractNumeric(filteredRows, col) : [], [state.dataset, filteredRows])
 
-  const getUniqueValues = useCallback((col: string) =>
-    state.dataset ? uniqueValues(state.dataset.rows, col) : [], [state.dataset])
+  const getUniqueValues = useCallback((col: string) => {
+    if (!state.dataset) return []
+    let levels = uniqueCache.get(col)
+    if (!levels) {
+      levels = uniqueValues(state.dataset.rows, col)
+      uniqueCache.set(col, levels)
+    }
+    return levels
+  }, [state.dataset, uniqueCache])
 
   return (
     <DataContext.Provider value={{

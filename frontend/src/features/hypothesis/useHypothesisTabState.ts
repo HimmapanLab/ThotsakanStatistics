@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { hypothesisApi, ONE_SAMPLE_T, TWO_SAMPLE_T, EQUAL_VARIANCE, ONE_WAY_ANOVA, type Alternative, type GroupSpec, type HypothesisResponse } from '../../api/hypothesis';
 
@@ -56,22 +56,37 @@ export function validateDraft(draft: HypothesisDraft, numericCols: string[], cat
   return { errors, config };
 }
 
+/** A column with more categories than this is never picked as a default group (a timestamp or an ID). */
+export const MAX_DEFAULT_GROUP_LEVELS = 50;
+
 /**
  * Group tests need groups from a categorical column. While a group points at no valid column, fill it
- * with the first categorical column: group 1 = its first category, group 2 = its second, the ANOVA
- * factor = all categories. A group the user has set up is never touched.
+ * with the first categorical column that has between 2 and MAX_DEFAULT_GROUP_LEVELS categories: group 1 =
+ * its first category, group 2 = its second. The ANOVA factor gets all its categories, but only while the
+ * test is one-way ANOVA. A group the user has set up is never touched. When no column qualifies, the groups
+ * stay empty and the user picks one.
  */
 export function withGroupDefaults(draft: HypothesisDraft, categoricalCols: string[], levelsOf: (column: string) => string[]): HypothesisDraft {
-  const column = categoricalCols[0];
+  const twoGroups = draft.testType === TWO_SAMPLE_T || draft.testType === EQUAL_VARIANCE;
+  const anova = draft.testType === ONE_WAY_ANOVA;
+  if (!twoGroups && !anova) return draft;
+  const valid = (group: GroupSpec) => categoricalCols.includes(group.column);
+  if (twoGroups ? valid(draft.group1) && valid(draft.group2) : valid(draft.anovaGroup)) return draft;
+  let column = '';
+  let levels: string[] = [];
+  for (const candidate of categoricalCols) {
+    const candidateLevels = levelsOf(candidate);
+    if (candidateLevels.length >= 2 && candidateLevels.length <= MAX_DEFAULT_GROUP_LEVELS) {
+      column = candidate;
+      levels = candidateLevels;
+      break;
+    }
+  }
   if (!column) return draft;
-  const levels = levelsOf(column);
-  const fill = (group: GroupSpec, values: string[]) => categoricalCols.includes(group.column) ? group : { ...group, column, values };
-  return {
-    ...draft,
-    group1: fill(draft.group1, levels.slice(0, 1)),
-    group2: fill(draft.group2, levels.slice(1, 2)),
-    anovaGroup: fill(draft.anovaGroup, levels),
-  };
+  const fill = (group: GroupSpec, values: string[]) => valid(group) ? group : { ...group, column, values };
+  return twoGroups
+    ? { ...draft, group1: fill(draft.group1, levels.slice(0, 1)), group2: fill(draft.group2, levels.slice(1, 2)) }
+    : { ...draft, anovaGroup: fill(draft.anovaGroup, levels) };
 }
 
 const AUTO_RUN_DELAY = 250;
@@ -188,9 +203,19 @@ export function useHypothesisTabState() {
     runIfValid(next);
   };
   const isDirty = !!result && JSON.stringify(validation.config) !== JSON.stringify(applied?.config);
-  const countGroup = (group: GroupSpec) => filteredRows.filter(row =>
-    group.values.includes(row[group.column]) && row[draft.column]?.trim() !== '' && Number.isFinite(Number(row[draft.column]))
-  ).length;
+  const groupCounts = useMemo(() => {
+    const countGroup = (group: GroupSpec) => {
+      if (!group.column || !group.values.length) return 0;
+      const chosen = new Set(group.values);
+      let n = 0;
+      for (const row of filteredRows) {
+        const cell = row[draft.column];
+        if (chosen.has(row[group.column]) && cell?.trim() !== '' && Number.isFinite(Number(cell))) n++;
+      }
+      return n;
+    };
+    return [countGroup(draft.group1), countGroup(draft.group2)];
+  }, [filteredRows, draft.column, draft.group1, draft.group2]);
 
   return {
     draft, setDraft, result, applied, isComputing, error, isDirty,
@@ -200,7 +225,7 @@ export function useHypothesisTabState() {
     numericCols: data.numericCols, categoricalCols: data.categoricalCols,
     precision: data.displayPrecision, sessionId: data.sessionId, filename: data.filename,
     filteredN: filteredRows.length, getUniqueValues,
-    groupCounts: [countGroup(draft.group1), countGroup(draft.group2)],
+    groupCounts,
   };
 }
 

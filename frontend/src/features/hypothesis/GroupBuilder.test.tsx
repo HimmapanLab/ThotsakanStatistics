@@ -2,9 +2,12 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SelectField, TextField } from '../../components/ControlPrimitives'
-import GroupBuilder from './GroupBuilder'
+import GroupBuilder, { LEVEL_LIST_CAP } from './GroupBuilder'
 
-vi.mock('../../context/DataContext', () => ({ useData: () => ({ getUniqueValues: () => ['0', '1'] }) }))
+const manyLevels = Array.from({ length: 17518 }, (_, i) => `t${String(i).padStart(5, '0')}`)
+vi.mock('../../context/DataContext', () => ({
+  useData: () => ({ getUniqueValues: (column: string) => (column === 'ds' ? manyLevels : ['0', '1']) }),
+}))
 
 let root: Root
 let container: HTMLDivElement
@@ -36,5 +39,26 @@ describe('GroupBuilder', () => {
       select.dispatchEvent(new Event('change', { bubbles: true }))
     })
     expect(onChange).toHaveBeenCalledWith({ column: 'Sex', values: [], name: 'Group 1' })
+  })
+
+  it('lists at most LEVEL_LIST_CAP categories of a near-unique column, with search and no "All"', () => {
+    act(() => root.render(<GroupBuilder label="Group 1" value={{ column: 'ds', values: [], name: 'Group 1' }} onChange={() => {}} categoricalCols={['ds']} />))
+    expect(container.querySelectorAll('input[type="checkbox"]')).toHaveLength(LEVEL_LIST_CAP)
+    const all = container.querySelector('button[aria-label^="Select all"]') as HTMLButtonElement
+    expect(all.disabled).toBe(true)
+    const search = container.querySelector('input[type="search"]') as HTMLInputElement
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(search, 't17517')
+      search.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    const boxes = container.querySelectorAll('input[type="checkbox"]')
+    expect(boxes).toHaveLength(1)
+    expect(boxes[0].closest('label')?.textContent).toContain('t17517')
+  })
+
+  it('lists every category and keeps "All" when there are few', () => {
+    act(() => root.render(<GroupBuilder label="Group 1" value={{ column: 'Smoke', values: [], name: 'Group 1' }} onChange={() => {}} categoricalCols={['Smoke']} />))
+    expect(container.querySelectorAll('input[type="checkbox"]')).toHaveLength(2)
+    expect(container.querySelector('input[type="search"]')).toBeNull()
   })
 })
