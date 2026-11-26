@@ -119,7 +119,7 @@ describe('Descriptive controls', () => {
   it('waits for a variable: steps 2 and 3 show only their names, and nothing is requested', async () => {
     await act(async () => hook.setDraft({ column: '' }))
     const headings = () => [...container.querySelectorAll('h2')].map(h => h.textContent)
-    expect(headings()).toEqual(['Data', 'What to show (opens after step 1)', 'Settings (opens after step 2)'])
+    expect(headings()).toEqual(['Data', 'What to show (opens after step 1)', 'Settings (opens after step 1)'])
     expect(has('Mean')).toBe(false)
     expect(container.querySelector('input[type="checkbox"]')).toBeNull()
     expect(container.textContent).not.toContain('Reset to defaults')

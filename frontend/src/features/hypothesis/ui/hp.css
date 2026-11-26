@@ -26,6 +26,9 @@
 .hp-gated .hp-check { color: var(--ink-faint); cursor: not-allowed; }
 .hp-gated .hp-check input { border-color: var(--line); background: var(--inset); cursor: not-allowed; }
 .hp-why { margin: 0 0 4px 30px; font-size: 0.9286rem; color: var(--ink-faint); line-height: 1.43; }
+.hp-why-link { display: inline; padding: 0; border: 0; background: none; font: inherit; color: var(--action); text-decoration: underline; cursor: pointer; }
+.hp-why-link:hover { color: var(--accent-hover); }
+.hp-why-link:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 2px; }
 .hp-note { margin: 0; font-size: 0.9286rem; color: var(--ink-muted); line-height: 1.43; }
 .hp-note.is-warn { color: var(--warn); }
 

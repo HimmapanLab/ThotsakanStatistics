@@ -57,8 +57,8 @@ export default function InputsFrame({ loaded, hasData, picked, column, columns, 
         </>
       ) : (
         <>
-          <LockedStep n={2} title={STATS_STEPS[0]} />
-          <LockedStep n={3} title={STATS_STEPS[1]} />
+          <LockedStep n={2} title={STATS_STEPS[0]} after={1} />
+          <LockedStep n={3} title={STATS_STEPS[1]} after={1} />
         </>
       ))}
     </div>

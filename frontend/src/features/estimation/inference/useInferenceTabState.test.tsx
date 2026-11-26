@@ -122,7 +122,7 @@ describe('Inference student workflow', () => {
     await render()
     expect(state.picked).toBe(false)
     expect(inferenceApi.computeCI).not.toHaveBeenCalled()
-    expect([...container.querySelectorAll('h2')].map(h => h.textContent).slice(0, 3)).toEqual(['Data', 'What to show (opens after step 1)', 'Settings (opens after step 2)'])
+    expect([...container.querySelectorAll('h2')].map(h => h.textContent).slice(0, 3)).toEqual(['Data', 'What to show (opens after step 1)', 'Settings (opens after step 1)'])
   })
 
   it('updates on its own after a short pause, and treats zoom/disclosures as display settings', async () => {

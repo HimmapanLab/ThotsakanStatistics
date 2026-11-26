@@ -239,6 +239,8 @@ export function useHypothesisTabState() {
     /** A variable is picked: the steps after "Data" are open and the results can be calculated. */
     picked: data.numericCols.includes(draft.column),
     numericCols: data.numericCols, categoricalCols: data.categoricalCols,
+    /** Every column that can make groups, with its number of levels (for the tests that do not fit the data). */
+    groupColumns: data.categoricalCols.map((name) => ({ name, levels: data.profiles[name]?.nUnique ?? 0 })),
     precision: data.displayPrecision, sessionId: data.sessionId, filename: data.filename,
     filteredN: filteredRows.length, getUniqueValues,
     groupCounts,

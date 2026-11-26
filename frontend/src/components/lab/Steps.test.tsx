@@ -64,6 +64,11 @@ describe('step boxes', () => {
     expect(section.textContent).toContain('opens after step 2')
     expect(section.querySelector('button, input, select')).toBeNull()
   })
+
+  it('names the step that opens it, which steps 2 and 3 share when they open together', () => {
+    act(() => root.render(<LockedStep n={3} title="Settings" after={1} />))
+    expect(container.querySelector('section')!.textContent).toContain('opens after step 1')
+  })
 })
 
 describe('DataStep', () => {

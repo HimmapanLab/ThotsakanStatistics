@@ -15,7 +15,7 @@ function dataFixture() {
     state: {
       status: 'ready' as const, sessionId: 'session-a', filename: 'ApneaCMKL.csv',
       dataset: { headers: ['Breath', 'Smoke'], rows: [], numericCols: ['Breath', 'Smoke'], categoricalCols: [] },
-      numericCols: ['Breath', 'Smoke'], categoricalCols: [] as string[],
+      numericCols: ['Breath', 'Smoke'], categoricalCols: [] as string[], profiles: {} as Record<string, { nUnique: number }>,
       filters: {} as Record<string, string[]>, displayPrecision: 3,
     },
     filteredRows: [{ Breath: '28', Smoke: '1' }, { Breath: '53', Smoke: '0' }],
@@ -85,6 +85,26 @@ afterEach(async () => {
 });
 
 describe('Hypothesis student workflow', () => {
+  it('greys the tests the data cannot run, says why, and refuses a touch on them', async () => {
+    // Electricity-like data: one grouping column with only 2 levels, so one-way ANOVA cannot run.
+    data = { ...data, state: { ...data.state, sessionId: 'session-g', categoricalCols: ['Holiday'], profiles: { Holiday: { nUnique: 2 } } } };
+    const haptic = vi.spyOn(haptics, 'haptic').mockReturnValue(true);
+    await render();
+    await pick();
+    const gated = [...container.querySelectorAll<HTMLElement>('.hp-gated')];
+    expect(gated).toHaveLength(1);
+    expect(gated[0].textContent).toContain('One-way ANOVA');
+    expect(gated[0].textContent).toContain('Needs a Nominal or Ordinal column with 3 or more groups');
+    expect(gated[0].querySelector('input')!.disabled).toBe(true);
+    expect(gated[0].querySelector('button')!.textContent).toBe('Show me in Data');
+    haptic.mockClear();
+    await act(async () => gated[0].click());
+    expect(haptic).toHaveBeenCalledWith('refuse');
+    // The two-sample tests can run on 2 levels.
+    const labels = [...container.querySelectorAll('.hp-opt .hp-check')].map((label) => label.textContent);
+    expect(labels).toContain("Two samples Student's t-test");
+  });
+
   it('opens with only step 1: the later steps are locked, nothing is sent, and the variable is empty', async () => {
     data = { ...data, state: { ...data.state, sessionId: 'session-b', filename: 'new.csv' } };
     vi.mocked(hypothesisApi.runTest).mockClear();
@@ -92,7 +112,7 @@ describe('Hypothesis student workflow', () => {
     expect(state.picked).toBe(false);
     expect(state.draft.column).toBe('');
     const titles = [...container.querySelectorAll('h2')].map((heading) => heading.textContent);
-    expect(titles).toEqual(['Data', 'Test (opens after step 1)', 'Settings (opens after step 2)']);
+    expect(titles).toEqual(['Data', 'Test (opens after step 1)', 'Settings (opens after step 1)']);
     expect(container.querySelectorAll('.is-locked')).toHaveLength(2);
     expect(container.querySelector('select')!.value).toBe('');
     expect(container.textContent).not.toContain('Significance level');
@@ -189,7 +209,7 @@ describe('Hypothesis student workflow', () => {
   });
 
   it('pre-fills groups from the first categorical column, and keeps what the user chose', async () => {
-    data = { ...data, state: { ...data.state, numericCols: ['Breath'], categoricalCols: ['Smoke'] } };
+    data = { ...data, state: { ...data.state, numericCols: ['Breath'], categoricalCols: ['Smoke'], profiles: { Smoke: { nUnique: 2 } } } as typeof data.state };
     await render();
     await act(async () => state.setDraft({ testType: TWO_SAMPLE_T }));
     expect(state.draft.group1).toMatchObject({ column: 'Smoke', values: ['0'] });

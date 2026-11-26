@@ -4,8 +4,10 @@ import DualInput from '../../components/DualInput'
 import { DataStep, FormulaButton, LockedStep, StepBox } from '../../components/lab'
 import { EQUAL_VARIANCE, ONE_SAMPLE_T, ONE_WAY_ANOVA, TEST_TYPES, TWO_SAMPLE_T, type Alternative } from '../../api/hypothesis'
 import { LABELS, confidenceReadout } from '../../labels'
+import { useDrawer } from '../../context/DrawerContext'
 import { haptic } from '../../lib/haptics'
 import GroupBuilder from './GroupBuilder'
+import { testFit } from './testFit'
 import { HYP_FORMULA_NOTE } from './ui/formulaNotes'
 import { useJustOpened } from './ui/blocks'
 import type { HypothesisTabState } from './useHypothesisTabState'
@@ -16,7 +18,6 @@ const alternatives: { value: Alternative; label: string }[] = [
   { value: 'less', label: 'Less than (<)' },
 ]
 
-const GROUP_TESTS: readonly string[] = [TWO_SAMPLE_T, EQUAL_VARIANCE, ONE_WAY_ANOVA]
 
 /**
  * The inputs, as numbered steps (step gating, decisions.md 2026-11-26). Step 1 is the data and the variable.
@@ -38,6 +39,7 @@ export default function HypothesisControls({ state }: { state: HypothesisTabStat
   const [resetGeneration, setResetGeneration] = useState(0)
   const empty = state.numericCols.length === 0
   const noGroupColumns = state.categoricalCols.length === 0
+  const drawer = useDrawer()
 
   const pickVariable = (column: string) => {
     if (!picked) haptic('step')
@@ -54,19 +56,21 @@ export default function HypothesisControls({ state }: { state: HypothesisTabStat
       </DataStep>
 
       {!picked ? <>
-        <LockedStep n={2} title="Test" />
-        <LockedStep n={3} title="Settings" />
+        <LockedStep n={2} title="Test" after={1} />
+        <LockedStep n={3} title="Settings" after={1} />
       </> : <>
         <StepBox n={2} title="Test" isNew={justOpened}>
           <fieldset className="hp-opts">
             <legend className="sr-only">Test</legend>
             {TEST_TYPES.map((test) => {
-              const gated = GROUP_TESTS.includes(test) && noGroupColumns && draft.testType !== test
-              if (gated) {
+              // A test the data cannot run is greyed with the reason, unless it is the one already chosen.
+              const fit = testFit(test, state.groupColumns)
+              if (!fit.ok && draft.testType !== test) {
                 return (
                   <div key={test} className="hp-gated" onClick={() => haptic('refuse')}>
                     <label className="hp-check"><input type="radio" name={`${id}-test`} disabled /><span>{test}</span></label>
-                    <p className="hp-why">Needs a Nominal or Ordinal column to make groups. Your data has none; change a column’s type in the Data drawer.</p>
+                    <p className="hp-why">{fit.reason}{' '}
+                      <button type="button" className="hp-why-link" onClick={(event) => { event.stopPropagation(); drawer.setOpen(true) }}>Show me in Data</button></p>
                   </div>
                 )
               }
