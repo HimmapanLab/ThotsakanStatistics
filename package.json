@@ -1,6 +1,6 @@
 {
   "name": "thotsakanstatistics-fullstack",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "ThotsakanStatistics complete frontend & backend service",
   "scripts": {
     "dev": "concurrently \"npm run dev --prefix frontend\" \"cd backend && python -m uvicorn main:app --reload\""
