@@ -94,7 +94,7 @@ function saveRoute(route: Route): void {
 }
 
 /** The page under the Preferences sheet, so opening and closing it does not change the page. */
-let shown: Route = 'home'
+let shown: Route = savedRoute() ?? 'home'
 
 /**
  * The page the address names, and a setter that changes it. An empty address restores the page the reader was

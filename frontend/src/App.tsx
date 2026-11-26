@@ -4,6 +4,7 @@ import LogoBar from './layout/LogoBar'
 import Header from './layout/Header'
 import SubHeader, { type SubTab } from './layout/SubHeader'
 import LabBench from './layout/LabBench'
+import { isStatsRoute, type Route } from './app/routes'
 import Footer from './layout/Footer'
 import HomeTab from './features/home/HomeTab'
 import DataTab from './features/data/DataTab'
@@ -140,6 +141,16 @@ export default function App() {
   function handleTabChange(tab: string) {
     const t = tab as TabId
     setActiveTab(t)
+  }
+
+  // The front page names pages by Route; this shell still has Statistics as one tab with sub-tabs.
+  function handleNavigate(route: Route) {
+    if (isStatsRoute(route)) {
+      setActiveTab('estimation')
+      setSubTabMap((prev) => ({ ...prev, estimation: route.slice('statistics-'.length) }))
+    } else {
+      setActiveTab(route)
+    }
   }
 
   function handleSubTabChange(key: string) {
@@ -360,7 +371,7 @@ export default function App() {
       <div className="flex-1 overflow-hidden relative flex flex-col">
         <ErrorBoundary fallbackRender={({ error, resetErrorBoundary }) => <ErrorFallback error={error as Error} resetErrorBoundary={resetErrorBoundary} />} onReset={() => setActiveTab('home')}>
           {isHome
-            ? <HomeTab onNavigate={handleTabChange} />
+            ? <HomeTab onNavigate={handleNavigate} />
             : activeTab === 'data'
               ? <DataTab />
               : <LabBench controls={controls} observation={observation} notebook={notebook} />

@@ -3,8 +3,10 @@
  * Mirrors the Python app's Home tab: hero, vision, product cards, affiliations.
  */
 
+import type { Route } from '../../app/routes'
+
 interface HomeTabProps {
-  onNavigate: (tab: string) => void
+  onNavigate: (route: Route) => void
 }
 
 // ── Product cards ────────────────────────────────────────────────────────────
@@ -17,7 +19,7 @@ const PRODUCTS = [
     description:
       'Explore data, test ideas, and connect statistical theory with computational experimentation.',
     status: 'active' as const,
-    tab: 'probability',
+    tab: 'probability' as Route,
     repo: 'https://github.com/IrvingGomez/ThotsakanStatistics',
   },
   {
@@ -32,10 +34,9 @@ const PRODUCTS = [
   },
 ]
 
-const FEATURES = [
-  { tab: 'data',        icon: '📁', label: 'Data',              desc: 'Load datasets and explore their structure' },
+const FEATURES: { tab: Route; icon: string; label: string; desc: string }[] = [
   { tab: 'probability', icon: '🎲', label: 'Probability',       desc: 'Explore distributions and model randomness' },
-  { tab: 'estimation',  icon: '📐', label: 'Statistics',        desc: 'Summarize data and quantify uncertainty' },
+  { tab: 'statistics-graphical', icon: '📐', label: 'Statistics',        desc: 'Summarize data and quantify uncertainty' },
   { tab: 'hypothesis',  icon: '🧪', label: 'Hypothesis Testing', desc: 'Evaluate claims and compare groups' },
   { tab: 'regression',  icon: '📈', label: 'Linear Regression',  desc: 'Model relationships and interpret evidence' },
 ]
