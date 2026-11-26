@@ -6,7 +6,7 @@ import { QUERY_FORMULA_NOTE } from '../../hypothesis/ui/formulaNotes'
 export type DistPart = 'dist' | 'params' | 'mean' | 'variance'
 
 /** What backend/core has no formula for yet: said plainly, never invented. */
-const NONE = 'Formula not written yet. Irving to supply it from backend/core.'
+const NONE = 'The formula for this distribution will be added soon.'
 
 /**
  * One ƒ button for one part of the chosen distribution, typeset from distributionFormulas.ts (the

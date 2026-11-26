@@ -91,6 +91,14 @@ describe('Descriptive distribution chart', () => {
     expect(items).toEqual(['Histogram (count per bin)', 'Mean 1.00', 'Median 1.50', 'Box Q1 1.11 – Q3 2.22', 'Whiskers 0.00 – 3.00', 'Outliers 2'])
   })
 
+  it('says the whiskers sit at the fences, as the plot and the legend draw them, and never that they are clipped', () => {
+    render(true)
+    const note = container.querySelector('.est-note')!.textContent!
+    expect(note).toContain('whiskers sit at the fences')
+    expect(note).toContain('Q1 − 1.5 × IQR and Q3 + 1.5 × IQR')
+    expect(container.textContent).not.toContain('clipped')
+  })
+
   it('draws the histogram soft, so the mean and median lines stand out', () => {
     render(true)
     expect(plot.data.find((trace) => trace.type === 'bar')!.marker).toEqual(HISTOGRAM_MARKER)

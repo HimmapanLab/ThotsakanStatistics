@@ -197,7 +197,7 @@ function DescriptiveCharts({ result, colName, precision, height, onReady, onPurg
         { label: 'Whiskers', kind: 'solid', color: PLOT_COLORS.data, value: `${fmt(boxData.whiskerLo)} – ${fmt(boxData.whiskerHi)}` },
         { label: 'Outliers', kind: 'dot', color: PLOT_COLORS.outlier, value: String(boxData.outliers.length) },
       ]} />
-      <p className="est-note">Box plot: whiskers reach the 1.5 × IQR fences, clipped to the smallest and largest value; circles are values beyond them.</p>
+      <p className="est-note">Box plot: the whiskers sit at the fences, Q1 − 1.5 × IQR and Q3 + 1.5 × IQR, even where no value lies that far out; circles are values beyond them.</p>
     </>
   )
 }

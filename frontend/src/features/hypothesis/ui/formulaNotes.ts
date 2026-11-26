@@ -1,6 +1,6 @@
 /**
- * What an ƒ button says when backend/core has no formula to show for it yet. Wording from the approved
- * prototype (DRAFT for Irving). No formula is invented here: Irving supplies it from backend/core.
+ * What an ƒ button says when there is no formula to show for it yet. Student-facing wording: no formula is
+ * invented here, and it names no file or person. The formulas themselves come from backend/core.
  */
-export const HYP_FORMULA_NOTE = 'Formula not written yet. v1 shows no formula for this test; Irving to supply it from backend/core/hypothesis_testing.'
-export const QUERY_FORMULA_NOTE = 'Formula not written yet. v1’s distributionFormulas.ts has no entry for a query probability; Irving to supply it.'
+export const HYP_FORMULA_NOTE = 'The formula for this test will be added soon.'
+export const QUERY_FORMULA_NOTE = 'The formula for this probability will be added soon.'

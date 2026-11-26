@@ -171,7 +171,8 @@ describe('Probability panels', () => {
     expect(pop.textContent).not.toContain('Poisson distribution')
     act(() => fx[2].click())
     expect(document.body.querySelectorAll('.lab-popover')).toHaveLength(1)
-    expect(document.body.querySelector('.lab-popover')!.textContent).toContain('Formula not written yet')
+    expect(document.body.querySelector('.lab-popover')!.textContent).toContain('will be added soon')
+    expect(document.body.querySelector('.lab-popover')!.textContent).not.toMatch(/Irving|\.ts/)
   })
 
   it('results put the table before the plot, with ƒ on the mean and the variance, and no verdict', () => {
