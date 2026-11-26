@@ -22,7 +22,7 @@ export default function StatusBanner({ isComputing, error, hasResult, onRetry, r
             <p className="font-semibold">Couldn’t update results</p>
             {hasResult && <p>{resultNotice ?? 'Previous result — update failed.'}</p>}
             <p className="mt-1 break-words">{error}</p>
-            {onRetry && <button type="button" onClick={onRetry} className="mt-2 rounded-md border border-[var(--color-border-md)] px-3 py-1.5 font-semibold hover:bg-white/10">Retry</button>}
+            {onRetry && <button type="button" onClick={onRetry} className="mt-2 rounded-md border border-[var(--color-border-md)] px-3 py-1.5 font-semibold hover:bg-[var(--hover-overlay)]">Retry</button>}
           </div>
         ) : null}
       </div>

@@ -105,23 +105,23 @@ function ChartFallback() {
 function ErrorFallback({ error, resetErrorBoundary }: { error: Error, resetErrorBoundary: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center h-full p-8 mx-auto max-w-2xl text-center">
-      <div className="border border-red-900/50 bg-red-950/20 rounded-xl p-8 w-full shadow-2xl">
-        <h2 className="text-2xl font-bold text-red-400 mb-4 flex justify-center items-center gap-2">
+      <div className="border border-[var(--error)] bg-[var(--error-bg)] rounded-xl p-8 w-full">
+        <h2 className="text-2xl font-bold text-[var(--error)] mb-4 flex justify-center items-center gap-2">
           <span className="text-3xl">⚠️</span> Something went wrong
         </h2>
-        <div className="text-sm text-left w-full overflow-auto max-h-64 bg-black/40 border border-black/50 p-4 rounded-lg mb-6 shadow-inner">
-          <pre className="font-mono text-red-200/90 leading-relaxed whitespace-pre-wrap">
+        <div className="text-sm text-left w-full overflow-auto max-h-64 bg-[var(--field)] border border-[var(--line)] p-4 rounded-lg mb-6">
+          <pre className="font-mono text-[var(--ink)] leading-relaxed whitespace-pre-wrap">
             {error.name}: {error.message}
           </pre>
           {error.stack && (
-            <pre className="mt-4 pt-4 border-t border-red-900/30 font-mono text-red-200/50 text-xs whitespace-pre-wrap">
+            <pre className="mt-4 pt-4 border-t border-[var(--line)] font-mono text-[var(--ink-muted)] text-xs whitespace-pre-wrap">
               {error.stack}
             </pre>
           )}
         </div>
         <button
           onClick={resetErrorBoundary}
-          className="px-6 py-3 bg-[var(--color-primary)] hover:brightness-110 text-white font-medium rounded-lg shadow-lg transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#111] focus:ring-[var(--color-primary)]"
+          className="px-6 py-3 bg-[var(--color-primary)] hover:brightness-110 text-white font-medium rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[var(--ground)] focus:ring-[var(--color-primary)]"
         >
           Recover and Restart
         </button>

@@ -9,9 +9,9 @@ const TABLE_GROUP_TINTS: Readonly<Record<string, { row: string; text: string; la
 
 /** Small labels beside a statistic's name, e.g. Robust. One color per meaning, in every table. */
 export const TABLE_TAG_STYLES = {
-  Robust: 'border-indigo-400/40 bg-indigo-500/20 text-indigo-300',
-  Unbiased: 'border-sky-400/40 bg-sky-500/20 text-sky-300',
-  Consistent: 'border-fuchsia-400/40 bg-fuchsia-500/20 text-fuchsia-300',
+  Robust: 'border-[var(--q-data)] bg-[var(--q-data-fill)] text-[var(--accent)]',
+  Unbiased: 'border-[var(--q-mean)] bg-[var(--inset)] text-[var(--q-mean)]',
+  Consistent: 'border-[var(--q-kde)] bg-[var(--inset)] text-[var(--q-kde)]',
 } as const
 export type TableTag = keyof typeof TABLE_TAG_STYLES
 

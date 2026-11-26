@@ -57,7 +57,7 @@ function DropZone() {
         <p className="text-xs text-[var(--color-accent)] animate-pulse">Parsing…</p>
       )}
       {state.status === 'error' && (
-        <p className="text-xs text-red-400">{state.errorMsg}</p>
+        <p className="text-xs text-[var(--error)]">{state.errorMsg}</p>
       )}
     </div>
   )
@@ -102,7 +102,7 @@ function ColumnTypes() {
               className={`px-2.5 py-1 rounded-full text-xs font-mono transition-colors cursor-pointer
                 border ${isNumeric
                   ? 'border-[var(--color-accent)]/50 bg-[var(--color-accent)]/10 text-[var(--color-accent)]'
-                  : 'border-[var(--color-border-md)] bg-[var(--color-bg-input)] text-amber-400'
+                  : 'border-[var(--color-border-md)] bg-[var(--color-bg-input)] text-[var(--warn)]'
                 }`}
             >
               {isNumeric ? '𝑥' : '𝑎'} {col}
@@ -127,12 +127,12 @@ function FilterBlock({ col, vals, selected, onToggle, onRemove }: { col: string,
   const displayVals = [...selected.filter(v => filteredVals.includes(v)), ...unselectedFiltered]
 
   return (
-    <div className="border border-[var(--color-border-md)] rounded bg-black/10 p-3">
+    <div className="border border-[var(--color-border-md)] rounded bg-[var(--inset)] p-3">
       <div className="flex items-center justify-between mb-2">
         <p className="text-xs font-semibold text-[var(--color-text)]">
           {col} <span className="text-xs text-[var(--color-text-muted)] font-normal ml-1">({vals.length} unique)</span>
         </p>
-        <button type="button" onClick={onRemove} className="text-xs text-[var(--color-text-muted)] hover:text-red-400 cursor-pointer">
+        <button type="button" onClick={onRemove} className="text-xs text-[var(--color-text-muted)] hover:text-[var(--error)] cursor-pointer">
           ✕ Remove
         </button>
       </div>
@@ -306,7 +306,7 @@ function DataPreview() {
                 <th key={h} className={`px-3 py-2 text-left font-semibold whitespace-nowrap
                   ${state.numericCols.includes(h)
                     ? 'text-[var(--color-accent)]'
-                    : 'text-amber-400'
+                    : 'text-[var(--warn)]'
                   }`}>
                   {h}
                 </th>
@@ -318,7 +318,7 @@ function DataPreview() {
               <tr
                 key={i}
                 className={`border-b border-[var(--color-border)] ${
-                  i % 2 === 0 ? '' : 'bg-white/[0.02]'
+                  i % 2 === 0 ? '' : 'bg-[var(--inset)]'
                 }`}
               >
                 <td className="px-3 py-1.5 text-[var(--color-text-muted)] tabular-nums">{i + 1}</td>
@@ -364,7 +364,7 @@ function PrecisionControl() {
         type="button"
         onClick={clearData}
         className="ml-auto px-3 py-1 rounded text-xs border border-[var(--color-border-md)]
-          text-[var(--color-text-muted)] hover:text-red-400 hover:border-red-400/50 transition-colors cursor-pointer"
+          text-[var(--color-text-muted)] hover:text-[var(--error)] hover:border-[var(--error)] transition-colors cursor-pointer"
       >
         🗑 Remove dataset
       </button>}

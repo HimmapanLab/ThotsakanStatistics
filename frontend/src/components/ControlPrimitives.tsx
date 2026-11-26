@@ -19,7 +19,7 @@ export function FieldShell({ id, label, hint, error, children }: {
       <label htmlFor={id} className="text-sm text-[var(--color-text)]">{label}</label>
       {children}
       {hint && <p id={`${id}-hint`} className="text-xs text-[var(--color-text-muted)]">{hint}</p>}
-      {error && <p id={`${id}-error`} className="text-xs text-red-400">{error}</p>}
+      {error && <p id={`${id}-error`} className="text-xs text-[var(--error)]">{error}</p>}
     </div>
   )
 }

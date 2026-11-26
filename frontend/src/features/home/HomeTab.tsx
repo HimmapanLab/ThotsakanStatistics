@@ -102,7 +102,7 @@ export default function HomeTab({ onNavigate }: HomeTabProps) {
                   bg-[var(--color-bg-panel)] border border-[var(--color-border)]
                   transition-all cursor-pointer
                   ${product.status === 'active'
-                    ? 'hover:border-[var(--color-accent)] hover:shadow-lg hover:shadow-indigo-500/10'
+                    ? 'hover:border-[var(--color-accent)] hover:shadow-[var(--shadow-pop)]'
                     : 'opacity-60 cursor-not-allowed'
                   }`}
               >
@@ -120,7 +120,7 @@ export default function HomeTab({ onNavigate }: HomeTabProps) {
                   {product.description}
                 </p>
                 {product.status === 'coming-soon' && (
-                  <span className="text-xs uppercase tracking-widest text-amber-400 font-semibold">
+                  <span className="text-xs uppercase tracking-widest text-[var(--warn)] font-semibold">
                     Coming soon
                   </span>
                 )}
@@ -155,7 +155,7 @@ export default function HomeTab({ onNavigate }: HomeTabProps) {
                 type="button"
                 onClick={() => onNavigate(f.tab)}
                 className="flex items-start gap-2.5 rounded-lg p-3 text-left
-                  hover:bg-white/5 transition-colors cursor-pointer"
+                  hover:bg-[var(--hover-overlay)] transition-colors cursor-pointer"
               >
                 <span className="text-lg mt-0.5">{f.icon}</span>
                 <div>

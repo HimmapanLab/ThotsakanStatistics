@@ -34,7 +34,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
             className={`shrink-0 whitespace-nowrap px-3 py-2 text-sm rounded-md transition-colors cursor-pointer
               ${activeTab === tab.key
                 ? 'bg-[var(--color-accent)] text-white'
-                : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-white/5'
+                : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--hover-overlay)]'
               }`}
           >
             <span aria-hidden="true" className="mr-1 text-[0.85em]">{tab.icon}</span>{tab.label}

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { PLOT_COLORS, TABLE_TINTS } from './theme'
 
-const hue = (group: keyof typeof TABLE_TINTS) => TABLE_TINTS[group].row.match(/^bg-(\w+)-950/)![1]
+const hue = (group: keyof typeof TABLE_TINTS) => TABLE_TINTS[group].row.match(/^bg-(\w+)-50$/)![1]
 
 describe('table tints', () => {
   it('give each Descriptive group its own color', () => {
@@ -17,14 +17,14 @@ describe('table tints', () => {
   it('use one pattern for row, text and label, so every tint reads the same', () => {
     for (const [group, tint] of Object.entries(TABLE_TINTS)) {
       const name = hue(group as keyof typeof TABLE_TINTS)
-      expect(tint, group).toEqual({ row: `bg-${name}-950/50`, text: `text-${name}-300`, label: `text-${name}-400` })
+      expect(tint, group).toEqual({ row: `bg-${name}-50`, text: `text-${name}-800`, label: `text-${name}-700` })
     }
   })
 })
 
 describe('plot colors', () => {
   it('draw the normal model in orange and the KDE in purple', () => {
-    expect(PLOT_COLORS.normal).toBe('#fb923c')
-    expect(PLOT_COLORS.fit).toBe('#c084fc')
+    expect(PLOT_COLORS.normal).toBe('#b54a0b')
+    expect(PLOT_COLORS.fit).toBe('#8136b5')
   })
 })
