@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import App from './App'
 import { AuthProvider } from './context/AuthContext'
 import { DataProvider } from './context/DataContext'
+import { DrawerProvider } from './context/DrawerContext'
 import LoginGate from './components/LoginGate'
 import { trackInput } from './lib/haptics'
 import './style.css'
@@ -15,7 +16,9 @@ createRoot(document.getElementById('app')!).render(
     <AuthProvider>
       <LoginGate>
         <DataProvider>
-          <App />
+          <DrawerProvider>
+            <App />
+          </DrawerProvider>
         </DataProvider>
       </LoginGate>
     </AuthProvider>
