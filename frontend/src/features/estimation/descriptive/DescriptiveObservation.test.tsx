@@ -42,6 +42,13 @@ const headers = () => [...container.querySelectorAll('th')].map((th) => th.textC
 const rowOf = (name: string) => [...container.querySelectorAll('tbody tr')].find((tr) => tr.textContent?.includes(name))!
 
 describe('Descriptive statistics table', () => {
+  it('tags a statistic the backend marks robust (MAD) as Robust, and no other row', () => {
+    render(true)
+    expect(rowOf('MAD').textContent).toContain('Robust')
+    expect(rowOf('Mean').textContent).not.toContain('Robust')
+    expect(rowOf('Std (ddof=1)').textContent).not.toContain('Robust')
+  })
+
   it('names the columns Statistic and Normal-corrected, with a column for the formula buttons', () => {
     render(true)
     expect(headers()).toEqual(['Statistic', 'Value', 'Normal-corrected', 'Formula'])
