@@ -5,6 +5,7 @@ import DescriptiveControls from './DescriptiveControls'
 import DescriptiveObservation from './DescriptiveObservation'
 import DescriptiveNotebook from './DescriptiveNotebook'
 import StatusBanner from '../../../components/StatusBanner'
+import ResultsGate from '../shared/ResultsGate'
 import type { DescriptiveState } from './useDescriptiveTabState'
 
 export function DescriptiveStatus({ state }: { state: DescriptiveState }) {
@@ -17,6 +18,8 @@ export function ControlsSlot({ state }: { state: DescriptiveState }) {
 }
 
 export function ObservationSlot({ state }: { state: DescriptiveState }) {
+  // Until a variable is picked the results area only says what to do (step gating).
+  if (!state.hasData || !state.picked) return <ResultsGate loaded={state.loaded} hasData={state.hasData} />
   return (
     <div className="h-full">
       <DescriptiveStatus state={state} />

@@ -1,27 +1,31 @@
 // features/estimation/descriptive/DescriptiveControls.tsx
-// Left panel: variable, basic statistics, advanced statistics, display options. A pure view of the
-// tab state; results update automatically and the hook only refetches when a *request* field changes.
+// Inputs of Descriptive Statistics, in steps: 1 Data (with the variable), 2 What to show (basic and advanced
+// statistics), 3 Settings (the normal-corrected column). A pure view of the tab state; results update
+// automatically and the hook only refetches when a *request* field changes.
 
 import type { ReactNode } from 'react'
-import { Accordion, AnalysisActions, Divider, SectionLabel, SelectField, SwitchField, TextField, VariableSection } from '../../../components/ControlPrimitives'
-import CheckboxTree, { type CheckboxNode } from '../../../components/CheckboxTree'
+import { SelectField, SwitchField, TextField } from '../../../components/ControlPrimitives'
 import { LABELS } from '../../../labels'
 import { ADVANCED_GROUPS, BASIC_TREE } from './descriptiveOptions'
 import type { DescriptiveState } from './useDescriptiveTabState'
+import InputsFrame from '../shared/InputsFrame'
+import { Option, OptionGroup, SubHead } from '../shared/Options'
 
 const DEFAULT_QUANTILES = '0.25, 0.5, 0.75'
 
 export default function DescriptiveControls({ state }: { state: DescriptiveState }) {
-  const { draft, setDraft, fieldErrors, numericCols } = state
+  const { draft, setDraft, fieldErrors, numericCols, picked } = state
 
-  const quantilesField = (
-    <TextField label="Quantile probabilities" value={draft.quantilesRaw} onChange={(quantilesRaw) => setDraft({ quantilesRaw })}
-      placeholder={DEFAULT_QUANTILES} hint="Comma-separated, from 0 to 1. Leave empty for none."
-      error={fieldErrors.quantilesRaw} />
-  )
-  const basicNodes: CheckboxNode[] = BASIC_TREE.map(node => node.id === 'quantiles' ? { ...node, detail: quantilesField } : node)
+  const on = (id: string) => draft.selected.includes(id)
+  const toggle = (id: string) => (checked: boolean) =>
+    setDraft({ selected: checked ? [...draft.selected, id] : draft.selected.filter((item) => item !== id) })
 
   const detailFor: Record<string, ReactNode> = {
+    quantiles: (
+      <TextField label="Quantile probabilities" value={draft.quantilesRaw} onChange={(quantilesRaw) => setDraft({ quantilesRaw })}
+        placeholder={DEFAULT_QUANTILES} hint="Comma-separated, from 0 to 1. Leave empty for none."
+        error={fieldErrors.quantilesRaw} />
+    ),
     trimmed_mean: (
       <TextField label={LABELS.trimFraction} value={draft.trimRaw} onChange={(trimRaw) => setDraft({ trimRaw })}
         placeholder="0.10" hint="Fraction to trim from each tail."
@@ -38,32 +42,51 @@ export default function DescriptiveControls({ state }: { state: DescriptiveState
         hint={draft.weightsCol ? undefined : 'Weighted mean needs a weights column.'} />
     ),
   }
+  const option = (id: string, label: string) => (
+    <Option key={id} checked={on(id)} onChange={toggle(id)} label={label} detail={detailFor[id]} />
+  )
+
+  const show = (
+    <>
+      <OptionGroup legend="Basic">
+        {BASIC_TREE.map((node) => node.children ? (
+          <div key={node.id}>
+            <SubHead>{node.label}</SubHead>
+            {node.children.map((child) => option(child.id, child.label))}
+          </div>
+        ) : (
+          <div key={node.id}>
+            <SubHead>{node.label}</SubHead>
+            {option(node.id, node.label)}
+          </div>
+        ))}
+      </OptionGroup>
+      <details className="est-adv" open={draft.advancedOpen} onToggle={(event) => {
+        const open = event.currentTarget.open
+        if (open !== draft.advancedOpen) setDraft({ advancedOpen: open })
+      }}>
+        <summary>Advanced</summary>
+        {ADVANCED_GROUPS.map(({ title, items }) => (
+          <div key={title}>
+            <SubHead>{title}</SubHead>
+            {items.map((item) => option(item.id, item.label))}
+          </div>
+        ))}
+      </details>
+    </>
+  )
+
+  const settings = (
+    <div className="est-settings">
+      <SwitchField label="Normal-corrected values" checked={draft.showConsistencyCorr}
+        onChange={(showConsistencyCorr) => setDraft({ showConsistencyCorr })}
+        hint="Adds a column that rescales each spread measure so it estimates σ if the data are normal." />
+    </div>
+  )
 
   return (
-    <div className="flex flex-col gap-0">
-
-      <VariableSection value={draft.column} onChange={(column) => setDraft({ column })}
-        options={numericCols} loaded={state.loaded} error={state.hasData ? fieldErrors.column : undefined} />
-
-      <Accordion title="Basic statistics" open={draft.basicOpen} onToggle={() => setDraft({ basicOpen: !draft.basicOpen })}>
-        <CheckboxTree label="Show" nodes={basicNodes} checked={draft.selected} onChange={(selected) => setDraft({ selected })} />
-      </Accordion>
-
-      <Accordion title="Advanced statistics" open={draft.advancedOpen} onToggle={() => setDraft({ advancedOpen: !draft.advancedOpen })}>
-        {ADVANCED_GROUPS.map(({ title, items }) => (
-          <CheckboxTree key={title} label={title} checked={draft.selected} onChange={(selected) => setDraft({ selected })}
-            nodes={items.map(item => ({ id: item.id, label: item.label, detail: detailFor[item.id] }))} />
-        ))}
-      </Accordion>
-
-      <Divider />
-
-      <SectionLabel>Display</SectionLabel>
-      <SwitchField label="Show normal-corrected values" checked={draft.showConsistencyCorr} onChange={(showConsistencyCorr) => setDraft({ showConsistencyCorr })} />
-
-      <Divider />
-
-      <AnalysisActions onReset={state.handleReset} />
-    </div>
+    <InputsFrame loaded={state.loaded} hasData={state.hasData} picked={picked} column={draft.column} columns={numericCols}
+      onPick={(column) => setDraft({ column })} columnError={fieldErrors.column}
+      show={show} settings={settings} onReset={state.handleReset} />
   )
 }

@@ -2,6 +2,7 @@ import StatusBanner, { EmptyState } from '../../../components/StatusBanner'
 import GraphicalControls from './GraphicalControls'
 import GraphicalObservation from './GraphicalObservation'
 import GraphicalNotebook from './GraphicalNotebook'
+import ResultsGate from '../shared/ResultsGate'
 import type { GraphicalTabState } from './useGraphicalTabState'
 
 interface SlotProps { state: GraphicalTabState }
@@ -19,6 +20,8 @@ function Status({ state, warnings = false }: SlotProps & { warnings?: boolean })
 }
 
 export function ObservationSlot({ state }: SlotProps) {
+  // Until a variable is picked the results area only says what to do (step gating).
+  if (!state.hasData || !state.picked) return <ResultsGate loaded={!!state.sessionId} hasData={state.hasData} />
   return (
     <div className="analysis-panel flex flex-col min-h-0">
       <Status state={state} warnings />

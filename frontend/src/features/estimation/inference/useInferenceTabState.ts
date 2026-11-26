@@ -96,8 +96,9 @@ function computationDraft(draft: InferenceDraft) {
 export function useInferenceTabState() {
   const { state: dataState, getNumericData } = useData()
   const [draft, updateDraft] = useState(() => {
-    const initial = initialInferenceDraft(dataState.numericCols[0])
+    const initial = initialInferenceDraft()
     const restored = { ...initial, ...loadPageState<typeof initial>('inference', dataState.filename) }
+    // A saved pick that is no longer a numeric column counts as not picked (step gating).
     return dataState.numericCols.includes(restored.column) ? restored : { ...restored, column: initial.column }
   })
   useSavePageState('inference', dataState.status === 'ready' ? dataState.filename : '', draft)
@@ -144,9 +145,12 @@ export function useInferenceTabState() {
     const ownsRequest = () => request === generation.current && currentDataKey.current === environment
     const cfg = configFromDraft(submitted)
     lastSubmitted.current = { ...submitted }
-    setAppliedDraft({ ...submitted }); setAppliedConfig(cfg)
+    // The last result stays on screen, with the settings it was computed from, until the new one arrives.
     setError(null); setPartialResult(false); setIsComputing(true)
-    setCiResult(null); setPiResult(null); setRegionResult(null)
+    const commit = (ci: IntervalsResponse | null, pi: IntervalsResponse | null, region: ConfidenceRegionsResponse | null) => {
+      setCiResult(ci); setPiResult(pi); setRegionResult(region)
+      setAppliedDraft({ ...submitted }); setAppliedConfig(cfg)
+    }
     const params: InferenceParams = {
       session_id: dataState.sessionId, column: cfg.column, alpha: cfg.alpha,
       mean_estimator: cfg.mean_estimator, median_estimator: cfg.median_estimator, sigma_estimator: cfg.sigma_estimator,
@@ -163,19 +167,23 @@ export function useInferenceTabState() {
           ...params, probs: cfg.probs.split(',').map(Number),
           add_ci_box: cfg.add_ci_box,
         })
-        if (ownsRequest()) setRegionResult(result)
+        if (ownsRequest()) commit(null, null, result)
       } else {
-        const requests: { label: string; promise: Promise<IntervalsResponse>; apply: (result: IntervalsResponse) => void }[] = []
-        if (cfg.wantsCI) requests.push({ label: 'Confidence intervals', promise: inferenceApi.computeCI(params), apply: setCiResult })
-        if (cfg.wantsPI) requests.push({ label: 'Prediction intervals', promise: inferenceApi.computePI(params), apply: setPiResult })
+        const requests: { label: string; promise: Promise<IntervalsResponse>; kind: 'ci' | 'pi' }[] = []
+        if (cfg.wantsCI) requests.push({ label: 'Confidence intervals', promise: inferenceApi.computeCI(params), kind: 'ci' })
+        if (cfg.wantsPI) requests.push({ label: 'Prediction intervals', promise: inferenceApi.computePI(params), kind: 'pi' })
         const outcomes = await Promise.allSettled(requests.map(item => item.promise))
         if (!ownsRequest()) return
         const failures: string[] = []
+        const got: { ci: IntervalsResponse | null; pi: IntervalsResponse | null } = { ci: null, pi: null }
         let successes = 0
         outcomes.forEach((outcome, index) => {
-          if (outcome.status === 'fulfilled') { requests[index].apply(outcome.value); successes += 1 }
+          if (outcome.status === 'fulfilled') { got[requests[index].kind] = outcome.value; successes += 1 }
           else failures.push(requests[index].label + ' failed: ' + (outcome.reason instanceof Error ? outcome.reason.message : 'Please retry.'))
         })
+        // A section that failed is empty (never the old one beside the new settings); when everything failed the
+        // previous result stays as it was.
+        if (successes > 0) commit(got.ci, got.pi, null)
         if (failures.length) {
           setPartialResult(successes > 0)
           setError((successes ? 'Partial results. ' : '') + failures.join(' ') + ' Retry uses the settings from this run.')
@@ -191,10 +199,18 @@ export function useInferenceTabState() {
   runRef.current = run
   const hasDataRef = useRef(hasData)
   hasDataRef.current = hasData
+  const datasetRef = useRef(dataState.filename)
   useEffect(() => {
-    clearResult()
+    const another = datasetRef.current !== dataState.filename
+    datasetRef.current = dataState.filename
     setFieldErrors({})
-    const next = { ...draftRef.current, column: dataState.numericCols.includes(draftRef.current.column) ? draftRef.current.column : dataState.numericCols[0] ?? '' }
+    // Another dataset starts with nothing picked and no numbers from the old one. The same data under a new
+    // session or filter keeps the pick and the result on screen until the new one arrives.
+    if (another) clearResult()
+    else { generation.current += 1; cancelAutoRun(); setIsComputing(false) }
+    const column = draftRef.current.column
+    const next = another ? initialInferenceDraft()
+      : { ...draftRef.current, column: dataState.numericCols.includes(column) ? column : '' }
     draftRef.current = next; updateDraft(next)
     if (activated && hasData) void runRef.current(next)
   }, [dataKey, activated, clearResult, hasData])
@@ -230,20 +246,22 @@ export function useInferenceTabState() {
   const handleRun = useCallback(() => runRef.current(draftRef.current), [])
   const handleRetry = useCallback(() => { if (lastSubmitted.current) void runRef.current(lastSubmitted.current) }, [])
   const handleReset = useCallback(() => {
-    clearResult()
-    const next = initialInferenceDraft(dataState.numericCols[0])
+    generation.current += 1; cancelAutoRun() // the result on screen stays until the one for the defaults arrives
+    // Reset restores the options, not the pick: the steps stay open.
+    const column = draftRef.current.column
+    const next = initialInferenceDraft(dataState.numericCols.includes(column) ? column : '')
     draftRef.current = next; updateDraft(next); setFieldErrors({})
     setResetGeneration(value => value + 1)
     // Like every other tab, Reset shows the result for the defaults straight away.
     if (hasDataRef.current) void runRef.current(next)
-  }, [clearResult, dataState.numericCols])
+  }, [cancelAutoRun, dataState.numericCols])
   const activate = useCallback(() => setActivated(true), [])
   const isDirty = !!appliedDraft && JSON.stringify(computationDraft(draft)) !== JSON.stringify(computationDraft(appliedDraft))
   return {
     draft, setDraft, appliedConfig, ciResult, piResult, regionResult,
     isComputing, error, isDirty, partialResult, fieldErrors, deviationEstimators, estimatorError,
     handleRun, handleRetry, handleReset, activate, hasData, resetGeneration,
-    numericCols: dataState.numericCols, precision: dataState.displayPrecision,
+    picked: !!draft.column, numericCols: dataState.numericCols, precision: dataState.displayPrecision,
     sessionId: dataState.sessionId, filename: dataState.filename,
   }
 }

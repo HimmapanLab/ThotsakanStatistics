@@ -64,17 +64,17 @@ export const DEFAULT_CONFIG: Omit<GraphicalConfig, 'column'> = {
  * Reconcile the config with a (possibly new) dataset.
  *
  * A column from the previous file must not survive a new upload; when the
- * current selection is gone, fall back to the first numeric column and clear
- * the weights column, which is dataset-specific too.
+ * current selection is gone, the variable is "not picked" again (empty) and the
+ * weights column, which is dataset-specific too, is cleared.
  */
 export function configForDataset(cfg: GraphicalConfig, numericCols: string[]): GraphicalConfig {
-  const columnOk = !!cfg.column && numericCols.includes(cfg.column)
+  const columnOk = !cfg.column || numericCols.includes(cfg.column)
   const weightsOk = !cfg.weightsColumn || numericCols.includes(cfg.weightsColumn)
   if (columnOk && weightsOk) return cfg
 
   return {
     ...cfg,
-    column: columnOk ? cfg.column : (numericCols[0] ?? ''),
+    column: columnOk ? cfg.column : '',
     weightsColumn: weightsOk ? cfg.weightsColumn : null,
   }
 }
