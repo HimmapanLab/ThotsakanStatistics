@@ -216,7 +216,8 @@ export function useInferenceTabState() {
   }, [dataKey, activated, clearResult, hasData])
   useEffect(() => () => { generation.current += 1; cancelAutoRun() }, [cancelAutoRun])
   useEffect(() => {
-    if (!activated || !hasData || !dataState.sessionId || !draft.column) return
+    // A variable left over from the previous dataset is not asked about (the other effect clears it).
+    if (!activated || !hasData || !dataState.sessionId || !draft.column || !dataState.numericCols.includes(draft.column)) return
     let cancelled = false
     setEstimatorError(null)
     inferenceApi.getEstimators({ session_id: dataState.sessionId, column: draft.column }).then(options => {
@@ -225,7 +226,7 @@ export function useInferenceTabState() {
       if (!cancelled) setEstimatorError('Estimator options could not be loaded. The current estimator remains available; select the variable again to retry.')
     })
     return () => { cancelled = true }
-  }, [activated, hasData, dataState.sessionId, draft.column])
+  }, [activated, hasData, dataState.sessionId, dataState.numericCols, draft.column])
   const setDraft = useCallback((patch: Partial<InferenceDraft>) => {
     const previous = draftRef.current
     const next = { ...previous, ...patch }

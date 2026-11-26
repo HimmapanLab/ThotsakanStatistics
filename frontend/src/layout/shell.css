@@ -157,7 +157,7 @@
 /* Narrow screens: one column, the rail first, then Data or the inputs, then the results */
 @media (max-width: 760px) {
   .bench, .bench.is-drawer { grid-template-columns: minmax(0, 1fr); min-height: 0; }
-  .bench-rail, .bench-drawer, .bench-inputs, .bench-output { grid-column: 1; grid-row: auto; }
+  .bench-rail, .bench-drawer, .bench-inputs, .bench-output, .bench.is-drawer .bench-output { grid-column: 1; grid-row: auto; }
   .bench-inputs, .bench-drawer { border-right: 0; border-bottom: 1px solid var(--line); }
   .bench-output { padding: 20px 16px 40px; }
 }

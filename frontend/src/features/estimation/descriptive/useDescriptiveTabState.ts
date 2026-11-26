@@ -215,9 +215,10 @@ export function useDescriptiveTabState() {
 
   // Results update automatically; submit decides whether the backend is needed.
   useEffect(() => {
-    if (!hasData || Object.keys(fieldErrors).length > 0) return
+    // A variable left over from the previous dataset is not sent (the effect above clears it).
+    if (!hasData || Object.keys(fieldErrors).length > 0 || !dataState.numericCols.includes(draft.column)) return
     submit(configFromDraft(draft))
-  }, [draft, fieldErrors, hasData, submit, attempt])
+  }, [draft, fieldErrors, hasData, dataState.numericCols, submit, attempt])
 
   const setDraft = useCallback((patch: Partial<DescriptiveDraft>) => {
     updateDraft(previous => {

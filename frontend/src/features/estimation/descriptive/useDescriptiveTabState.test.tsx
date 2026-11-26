@@ -209,6 +209,24 @@ describe('descriptive step gating', () => {
     expect(hook.draft.column).toBe('a')
     expect(hook.picked).toBe(true)
   })
+
+  it('never asks the new dataset about a variable that only the old one has', async () => {
+    vi.mocked(computeDescriptiveStats).mockResolvedValue(result(1))
+    mount()
+    await settle()
+    expect(calls()).toHaveLength(1)
+    const before = structuredClone(data.state)
+    // Another dataset arrives: a new session and file, and no column "a".
+    Object.assign(data.state, { sessionId: 'session-b', filename: 'other.csv', numericCols: ['c'] })
+    try {
+      act(() => root.render(<Harness />))
+      await settle()
+      expect(calls()).toHaveLength(1)
+      expect(hook.picked).toBe(false)
+    } finally {
+      Object.assign(data.state, before)
+    }
+  })
 })
 
 describe('descriptive status', () => {

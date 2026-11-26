@@ -573,6 +573,15 @@ describe('Inference follows the interaction contract', () => {
     expect(container.querySelector('form')!.textContent).not.toContain('Estimator options could not be loaded')
   })
 
+  it('does not ask the estimator list about a variable that only the previous dataset has', async () => {
+    await render()
+    vi.mocked(inferenceApi.getEstimators).mockClear()
+    // Another dataset arrives (new session and file, no column "Breath") before the draft has been cleared.
+    data = { ...data, state: { ...data.state, sessionId: 'session-b', filename: 'Other.csv', numericCols: ['Weight'] } }
+    await render()
+    expect(inferenceApi.getEstimators).not.toHaveBeenCalledWith(expect.objectContaining({ session_id: 'session-b', column: 'Breath' }))
+  })
+
   it('the zoom note is a muted section note', async () => {
     await act(async () => state.setDraft({ zoomCI: true }))
     await startRun()
