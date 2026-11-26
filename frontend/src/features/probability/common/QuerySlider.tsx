@@ -1,3 +1,5 @@
+import { haptic } from '../../../lib/haptics'
+
 // One track with one handle (P(X ≤ x)) or two (P(x₁ < X < x₂)); the filled part is the region the
 // probability is about. Two range inputs are stacked on the same track; only their handles take the pointer.
 
@@ -30,7 +32,7 @@ export default function QuerySlider({ min, max, step, handles, fill, onChange }:
       )}
       {handles.map((handle, index) => (
         <input key={handle.label} type="range" aria-label={handle.label} min={min} max={max} step={step}
-          value={Math.min(max, Math.max(min, handle.value))} onChange={(event) => onChange(index, Number(event.target.value))}
+          value={Math.min(max, Math.max(min, handle.value))} onChange={(event) => { haptic('detent'); onChange(index, Number(event.target.value)) }}
           className={THUMB} style={{ zIndex: index === 0 && lowerOnTop ? 2 : 1 }} />
       ))}
     </div>
