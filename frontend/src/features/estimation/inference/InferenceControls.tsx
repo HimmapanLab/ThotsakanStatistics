@@ -7,6 +7,7 @@ import { INTERVAL_TREE, selectionInfo } from './inferenceOptions'
 import type { InferenceState } from './useInferenceTabState'
 import InputsFrame from '../shared/InputsFrame'
 import { Option, OptionGroup } from '../shared/Options'
+import { IntervalFx, RegionFx, optionRow } from './IntervalFx'
 
 const ALPHA = { min: 0.001, max: 0.5, step: 0.001, decimals: 3 }
 const BOOTSTRAP = { min: 100, max: 5000, step: 100, decimals: 0 }
@@ -15,14 +16,18 @@ const clamp = (value: number, min: number, max: number, fallback: number) =>
   Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback
 
 /** The interval options as ticks: a method shows its own options only while it is ticked, as before. */
-function Tree({ nodes, selected, onChange }: { nodes: readonly CheckboxNode[]; selected: readonly string[]; onChange: (next: string[]) => void }) {
+function Tree({ nodes, selected, onChange, sigmaEstimator }: { nodes: readonly CheckboxNode[]; selected: readonly string[]; onChange: (next: string[]) => void; sigmaEstimator: string }) {
   const toggle = (id: string) => (checked: boolean) => onChange(checked ? [...selected, id] : selected.filter((item) => item !== id))
   return (
     <>
-      {nodes.map((node) => (
-        <Option key={node.id} checked={selected.includes(node.id)} onChange={toggle(node.id)} label={node.label}
-          detail={node.children ? <Tree nodes={node.children} selected={selected} onChange={onChange} /> : undefined} />
-      ))}
+      {nodes.map((node) => {
+        const stands = optionRow(node.id, sigmaEstimator)
+        return (
+          <Option key={node.id} checked={selected.includes(node.id)} onChange={toggle(node.id)} label={node.label}
+            fx={stands ? <IntervalFx kind={stands.kind} row={stands.row} sigmaEstimator={sigmaEstimator} name={stands.name} /> : undefined}
+            detail={node.children ? <Tree nodes={node.children} selected={selected} onChange={onChange} sigmaEstimator={sigmaEstimator} /> : undefined} />
+        )
+      })}
     </>
   )
 }
@@ -50,7 +55,8 @@ export default function InferenceControls({ state }: { state: InferenceState }) 
     <>
       <OptionGroup legend="Estimate">
         <Option kind="radio" name="estimate" checked={!isRegions} onChange={() => setDraft({ estimationType: 'Confidence and Prediction Intervals' })} label="Intervals" />
-        <Option kind="radio" name="estimate" checked={isRegions} onChange={() => setDraft({ estimationType: 'Confidence Regions' })} label="Confidence regions" />
+        <Option kind="radio" name="estimate" checked={isRegions} onChange={() => setDraft({ estimationType: 'Confidence Regions' })} label="Confidence regions"
+          fx={<RegionFx withBox={draft.addCiBox} />} />
       </OptionGroup>
       {isRegions ? (
         <OptionGroup legend="Regions">
@@ -62,10 +68,10 @@ export default function InferenceControls({ state }: { state: InferenceState }) 
         <>
           {/* The top-level 'ci' / 'pi' ticks stay on; each group shows only the methods under it. */}
           <OptionGroup legend={ciNode.label}>
-            <Tree nodes={ciNode.children!} selected={draft.selected} onChange={selected => setDraft({ selected })} />
+            <Tree nodes={ciNode.children!} selected={draft.selected} onChange={selected => setDraft({ selected })} sigmaEstimator={draft.sigmaEst} />
           </OptionGroup>
           <OptionGroup legend={piNode.label}>
-            <Tree nodes={piNode.children!} selected={draft.selected} onChange={selected => setDraft({ selected })} />
+            <Tree nodes={piNode.children!} selected={draft.selected} onChange={selected => setDraft({ selected })} sigmaEstimator={draft.sigmaEst} />
           </OptionGroup>
           {fieldErrors.selected && <p role="alert" className="est-error">{fieldErrors.selected}</p>}
         </>
