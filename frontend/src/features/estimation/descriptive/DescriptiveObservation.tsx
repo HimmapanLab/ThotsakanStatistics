@@ -16,6 +16,7 @@ import { downloadChartsPNG } from '../../../utils/exportPNG'
 import { downloadPDF } from '../../../utils/exportPDF'
 import { exportFilename } from '../../../utils/exportFilename'
 import { useChartRegistry } from '../../../hooks/useChartRegistry'
+import { formatAll, formatNumber } from '../../../utils/formatNumber'
 
 const CHART_ORDER = ['descriptive'] as const
 
@@ -27,7 +28,7 @@ const BOX = { histTop: 0.73, bottom: 0.78, low: 0.81, capLow: 0.85, middle: 0.89
 function StatsTable({ rows, showConsistencyCorr, precision }: {
   rows: StatRow[]; showConsistencyCorr: boolean; precision: number
 }) {
-  const fmt = (v: number | null) => v === null || Number.isNaN(v) ? '—' : v.toFixed(precision)
+  const fmt = (v: number | null) => formatNumber(v, precision)
   const columns = [
     { key: 'measure', label: 'Statistic' },
     { key: 'value', label: 'Value', align: 'right' as const },
@@ -85,7 +86,7 @@ function DescriptiveCharts({ result, colName, precision, onReady, onPurge }: {
     ? histogram.binEdges[1] - histogram.binEdges[0]
     : 1
 
-  const fmt = (v: number) => v.toFixed(precision)
+  const fmt = (v: number) => formatNumber(v, precision)
 
   // Invisible scatter marker on the box strip — one per stat, gives clean
   // individual hover labels. opacity:0 = invisible, size:14 = generous hit area.
@@ -110,8 +111,8 @@ function DescriptiveCharts({ result, colName, precision, onReady, onPurge }: {
       marker: HISTOGRAM_MARKER,
       // Pass bin edges so the hover template can show the range instead of the center
       customdata: histogram.binEdges.slice(0, -1).map((lo, i) => [
-        parseFloat(lo.toPrecision(4)),
-        parseFloat(histogram.binEdges[i + 1].toPrecision(4)),
+        formatNumber(lo, precision),
+        formatNumber(histogram.binEdges[i + 1], precision),
       ]),
       hovertemplate: '%{customdata[0]} – %{customdata[1]}<br>Count: %{y}<extra></extra>',
       showlegend: false,
@@ -133,7 +134,8 @@ function DescriptiveCharts({ result, colName, precision, onReady, onPurge }: {
       y: boxData.outliers.map(() => 0),
       xaxis: 'x', yaxis: 'y2',
       marker: { opacity: 0.85, size: 10, color: PLOT_COLORS.outlier },
-      hovertemplate: `Outlier: %{x:.${precision}f}<extra></extra>`,
+      customdata: formatAll(boxData.outliers, precision),
+      hovertemplate: 'Outlier: %{customdata}<extra></extra>',
       showlegend: false,
     }] : []),
   ]

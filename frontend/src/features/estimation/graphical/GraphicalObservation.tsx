@@ -15,6 +15,7 @@ import { downloadPDF } from '../../../utils/exportPDF'
 import { exportFilename } from '../../../utils/exportFilename'
 import { useChartRegistry } from '../../../hooks/useChartRegistry'
 import { HISTOGRAM_MARKER, PLOT_AXIS, PLOT_COLORS, PLOT_CONFIG, baseLayout } from '../../../plot/theme'
+import { formatCount, formatNumber, PRECISION_DEFAULT } from '../../../utils/formatNumber'
 
 const Plot = createPlotlyComponent(Plotly)
 
@@ -37,6 +38,13 @@ interface GraphicalObservationProps {
   /** A dataset is loaded (it may have no numeric variables). */
   loaded: boolean
   isComputing: boolean
+  /** Decimals for hovers and the PDF summary (docs/decisions.md, "Display precision"). */
+  precision?: number
+}
+
+/** Pairs of formatted x and y for a line's hover, so it matches the tables. */
+function pointLabels(x: number[], y: number[], precision: number) {
+  return x.map((value, index) => [formatNumber(value, precision), formatNumber(y[index], precision)])
 }
 
 /** Bar centres and widths from histogram edges. */
@@ -51,7 +59,7 @@ function barsFromEdges(bins: number[], densities: number[]) {
 }
 
 export default function GraphicalObservation({
-  result, column, graphType, hasData, loaded, isComputing,
+  result, column, graphType, hasData, loaded, isComputing, precision = PRECISION_DEFAULT,
 }: GraphicalObservationProps) {
   const registry = useChartRegistry(CHART_ORDER)
 
@@ -66,8 +74,10 @@ export default function GraphicalObservation({
         type: 'bar', x, y: densities, width,
         marker: HISTOGRAM_MARKER,
         name: 'Density',
-        customdata: counts.map((count, index) => [bins[index], bins[index + 1], count]),
-        hovertemplate: 'Bin: %{customdata[0]:.4g} to %{customdata[1]:.4g}<br>Count: %{customdata[2]}<br>Density: %{y:.4g}<extra></extra>',
+        customdata: counts.map((count, index) => [
+          formatNumber(bins[index], precision), formatNumber(bins[index + 1], precision), formatCount(count), formatNumber(densities[index], precision),
+        ]),
+        hovertemplate: 'Bin: %{customdata[0]} to %{customdata[1]}<br>Count: %{customdata[2]}<br>Density: %{customdata[3]}<extra></extra>',
       })
     }
 
@@ -86,7 +96,8 @@ export default function GraphicalObservation({
       out.push({
         type: 'scatter', mode: 'lines', x, y,
         line: { shape: 'hv', color: C_MAIN, width: 1.5 }, name: 'ECDF',
-        hovertemplate: '%{x:.4g}<br>F(x) = %{y:.4g}<extra></extra>',
+        customdata: pointLabels(x, y, precision),
+        hovertemplate: '%{customdata[0]}<br>F(x) = %{customdata[1]}<extra></extra>',
       })
     }
 
@@ -104,12 +115,13 @@ export default function GraphicalObservation({
         x: result.normal_curve.x, y: result.normal_curve.y,
         line: { color: C_NORMAL, width: 2.5, dash: 'longdash' },
         name: graphType === 'ECDF' ? 'Normal CDF' : 'Normal density',
-        hovertemplate: '%{x:.4g}<br>%{y:.4g}<extra></extra>',
+        customdata: pointLabels(result.normal_curve.x, result.normal_curve.y, precision),
+        hovertemplate: '%{customdata[0]}<br>%{customdata[1]}<extra></extra>',
       })
     }
 
     return out
-  }, [result, graphType])
+  }, [result, graphType, precision])
 
   const title =
     graphType === 'ECDF' ? 'Empirical Cumulative Distribution Function' : `Distribution of ${column}`
@@ -156,14 +168,14 @@ export default function GraphicalObservation({
 
   const handleExportPDF = useCallback(async () => {
     const stats = [
-      { label: 'n', value: String(result?.summary.n ?? '—') },
-      { label: 'Unique values', value: String(result?.summary.n_unique ?? '—') },
+      { label: 'n', value: formatCount(result?.summary.n) },
+      { label: 'Unique values', value: formatCount(result?.summary.n_unique) },
     ]
     if (result?.point_estimates?.mu != null) {
-      stats.push({ label: 'μ̂', value: result.point_estimates.mu.toPrecision(6) })
+      stats.push({ label: 'μ̂', value: formatNumber(result.point_estimates.mu, precision) })
     }
     if (result?.point_estimates?.sigma != null) {
-      stats.push({ label: 'σ̂', value: result.point_estimates.sigma.toPrecision(6) })
+      stats.push({ label: 'σ̂', value: formatNumber(result.point_estimates.sigma, precision) })
     }
     await downloadPDF({
       charts: registry.charts,
@@ -172,7 +184,7 @@ export default function GraphicalObservation({
       stats,
       filename: exportFilename(`graphical-${column}-${graphType}-report`, 'pdf', 'graphical-analysis'),
     })
-  }, [result, column, graphType, registry.charts])
+  }, [result, column, graphType, registry.charts, precision])
 
   const exportReady = !!result && !isComputing && registry.ready
 

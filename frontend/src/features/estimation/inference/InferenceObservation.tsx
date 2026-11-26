@@ -14,6 +14,7 @@ import { downloadChartsPNG } from '../../../utils/exportPNG'
 import { downloadCSV } from '../../../utils/exportCSV'
 import { downloadPDF } from '../../../utils/exportPDF'
 import { exportFilename } from '../../../utils/exportFilename'
+import { formatAll, formatNumber } from '../../../utils/formatNumber'
 
 const AXIS = { ...PLOT_AXIS, fixedrange: true }
 const BASE_LAYOUT = baseLayout({ autosize: true, dragmode: false })
@@ -37,8 +38,8 @@ function bracketTraces(rows: IntervalRow[], estimates: IntervalsResponse['point_
     const color = colorOf(row)
     const estimate = pointEstimate(row.Statistic, estimates)
     return [
-      { x: [row.Lower, row.Upper], y: [index, index], type: 'scatter', mode: 'lines+markers', line: { color, width: 3 }, marker: { color, size: 5 }, name: rowLabel(row), hovertemplate: '%{x:.' + precision + 'f}<extra></extra>' },
-      ...(estimate !== null ? [{ x: [estimate], y: [index], type: 'scatter', mode: 'markers', marker: { color, size: 9, symbol: 'diamond' }, name: 'Sample estimate', hovertemplate: 'Sample estimate: %{x:.' + precision + 'f}<extra></extra>' }] : []),
+      { x: [row.Lower, row.Upper], y: [index, index], type: 'scatter', mode: 'lines+markers', line: { color, width: 3 }, marker: { color, size: 5 }, name: rowLabel(row), customdata: formatAll([row.Lower, row.Upper], precision), hovertemplate: '%{customdata}<extra></extra>' },
+      ...(estimate !== null ? [{ x: [estimate], y: [index], type: 'scatter', mode: 'markers', marker: { color, size: 9, symbol: 'diamond' }, name: 'Sample estimate', customdata: [formatNumber(estimate, precision)], hovertemplate: 'Sample estimate: %{customdata}<extra></extra>' }] : []),
     ]
   })
 }
@@ -118,7 +119,9 @@ export default function InferenceObservation({ state }: { state: InferenceState 
     const data: any[] = [{
       z: region.z_matrix, x: region.mu_grid, y: region.sigma_grid, type: 'heatmap', colorscale: 'Viridis',
       colorbar: { title: { text: 'Relative likelihood', side: 'right' }, thickness: 12, x: 1.02 },
-      hovertemplate: 'Mean %{x:.' + state.precision + 'f}<br>Deviation %{y:.' + state.precision + 'f}<br>Relative likelihood %{z:.3f}<extra></extra>',
+      text: region.z_matrix.map((zRow, row) => zRow.map((z, column) =>
+        `Mean ${formatNumber(region.mu_grid[column], state.precision)}<br>Deviation ${formatNumber(region.sigma_grid[row], state.precision)}<br>Relative likelihood ${formatNumber(z, state.precision)}`)),
+      hovertemplate: '%{text}<extra></extra>',
     }]
     region.levels.forEach((level, index) => data.push({
       z: region.z_matrix, x: region.mu_grid, y: region.sigma_grid, type: 'contour',
@@ -126,7 +129,7 @@ export default function InferenceObservation({ state }: { state: InferenceState 
       contours: { start: level, end: level, size: 1, coloring: 'none' },
       line: { color: regionLineColor(index, region.levels.length), width: 2 }, name: coveragePercent(region.probs[index]) + ' region', showlegend: true, showscale: false, hoverinfo: 'skip',
     }))
-    data.push({ x: [region.mu_hat], y: [region.sigma_hat], mode: 'markers', type: 'scatter', name: 'Estimated mean and deviation', showlegend: true, marker: { color: PLOT_COLORS.regionEstimate, size: 11, symbol: 'x' }, hovertemplate: 'Mean %{x:.' + state.precision + 'f}<br>Deviation %{y:.' + state.precision + 'f}<extra></extra>' })
+    data.push({ x: [region.mu_hat], y: [region.sigma_hat], mode: 'markers', type: 'scatter', name: 'Estimated mean and deviation', showlegend: true, marker: { color: PLOT_COLORS.regionEstimate, size: 11, symbol: 'x' }, customdata: [[formatNumber(region.mu_hat, state.precision), formatNumber(region.sigma_hat, state.precision)]], hovertemplate: 'Mean %{customdata[0]}<br>Deviation %{customdata[1]}<extra></extra>' })
     if (state.appliedConfig?.add_ci_box && region.mu_ci && region.sigma_ci) data.push({
       x: [region.mu_ci[0], region.mu_ci[1], region.mu_ci[1], region.mu_ci[0], region.mu_ci[0]], y: [region.sigma_ci[0], region.sigma_ci[0], region.sigma_ci[1], region.sigma_ci[1], region.sigma_ci[0]],
       mode: 'lines', type: 'scatter', name: 'Separate marginal intervals', showlegend: true, line: { color: PLOT_COLORS.regionBox, dash: 'dash', width: 2 }, hoverinfo: 'skip',

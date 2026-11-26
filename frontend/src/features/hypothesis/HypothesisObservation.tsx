@@ -10,6 +10,7 @@ import { downloadChartsPNG } from '../../utils/exportPNG';
 import { downloadCSV } from '../../utils/exportCSV';
 import { downloadPDF } from '../../utils/exportPDF';
 import { exportFilename } from '../../utils/exportFilename';
+import { formatDof, formatNumber } from '../../utils/formatNumber';
 
 const CHART_ORDER = ['hypothesis'] as const;
 
@@ -49,7 +50,7 @@ function offscaleAnnotation(region: RejectionRegionData, precision: number): any
     y: region.y_max,
     xanchor: beyondUpper ? 'right' : 'left',
     yanchor: 'top',
-    text: `${statSymbol(region.dist)} = ${region.statistic.toFixed(precision)} ${beyondUpper ? '→' : '←'}`,
+    text: `${statSymbol(region.dist)} = ${formatNumber(region.statistic, precision)} ${beyondUpper ? '→' : '←'}`,
     showarrow: false,
     font: { color: C_STAT, size: 12 },
     bgcolor: PLOT_COLORS.hoverBg,
@@ -109,7 +110,7 @@ export default function HypothesisObservation({
       out.push({
         x: [cv, cv], y: [0, region.y_max], type: 'scatter', mode: 'lines',
         line: { color: C_CRIT, width: 1.5, dash: 'dash' },
-        hovertemplate: `critical ${statSymbol(region.dist)} = ${cv.toFixed(precision)}<extra></extra>`,
+        hovertemplate: `critical ${statSymbol(region.dist)} = ${formatNumber(cv, precision)}<extra></extra>`,
       });
     });
 
@@ -120,7 +121,7 @@ export default function HypothesisObservation({
     out.push({
       x: [at, at], y: [0, region.y_max],
       type: 'scatter', mode: 'lines', line: { color: C_STAT, width: 2.5 },
-      hovertemplate: `${statSymbol(region.dist)} = ${region.statistic.toFixed(precision)}<extra></extra>`,
+      hovertemplate: `${statSymbol(region.dist)} = ${formatNumber(region.statistic, precision)}<extra></extra>`,
     });
 
     return out;
@@ -135,7 +136,7 @@ export default function HypothesisObservation({
   }
 
   const region = result.rejection_region;
-  const dofLabel = region.dof.map((d) => (Number.isInteger(d) ? d : d.toFixed(precision))).join(', ');
+  const dofLabel = region.dof.map((d) => formatDof(d, precision)).join(', ');
   const baseName = `hypothesis-${result.test_type}`;
   const canExport = !isDirty && !isComputing && registry.ready;
   const exportHandlers = canExport ? {
@@ -181,7 +182,7 @@ export default function HypothesisObservation({
         <li className="flex items-center gap-2"><span aria-hidden="true" className="h-3 w-4 border" style={{ background: C_REJECT, borderColor: C_CRIT }} />Red area: rejection region</li>
         <li className="flex items-center gap-2"><span aria-hidden="true" className="h-3 w-4" style={{ background: C_P_AREA }} />Blue area: p-value</li>
       </ul>
-      <div className="hypothesis-plot min-w-0" style={{ height: 360 }} role="img" aria-label={`Null distribution. Observed ${statSymbol(region.dist)} statistic ${region.statistic.toFixed(precision)}; critical boundaries ${region.critical_values.map(value => value.toFixed(precision)).join(', ')}. p-value ${result.p_value.toPrecision(3)}.`}>
+      <div className="hypothesis-plot min-w-0" style={{ height: 360 }} role="img" aria-label={`Null distribution. Observed ${statSymbol(region.dist)} statistic ${formatNumber(region.statistic, precision)}; critical boundaries ${region.critical_values.map(value => formatNumber(value, precision)).join(', ')}. p-value ${formatNumber(result.p_value, precision)}.`}>
         <ReactPlotly
           data={traces}
           layout={{

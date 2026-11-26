@@ -6,6 +6,7 @@ import type { GraphicalResponse } from '../../../api/graphical'
 import { Formula, Row, Section } from '../../../components/notebook/NotebookParts'
 import MathFormula from '../../../components/MathFormula'
 import { EmptyState } from '../../../components/StatusBanner'
+import { formatNumber } from '../../../utils/formatNumber'
 
 interface GraphicalNotebookProps {
   result: GraphicalResponse | null
@@ -36,8 +37,7 @@ const NORMAL_CDF = String.raw`\hat{F}(x) = \Phi\!\left( \frac{x - \hat{\mu}}{\ha
 export default function GraphicalNotebook({ result, graphType, precision }: GraphicalNotebookProps) {
   if (!result) return <EmptyState loaded hasData compact />
 
-  const fmt = (v: number | null | undefined) =>
-    v === null || v === undefined ? '—' : Number(v).toFixed(precision)
+  const fmt = (v: number | null | undefined) => formatNumber(v, precision)
 
   const { point_estimates: pe, ecdf_data, alpha, kde_curve: kde } = result
   const definition = DEFINITIONS[graphType]

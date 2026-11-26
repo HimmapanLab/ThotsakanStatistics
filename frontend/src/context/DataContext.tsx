@@ -10,6 +10,19 @@ import {
   type ReactNode,
 } from 'react'
 import { parseFile, extractNumeric, uniqueValues, type ParsedDataset } from '../utils/parseFile'
+import { clampPrecision, PRECISION_DEFAULT } from '../utils/formatNumber'
+
+/** The display precision is a preference of this browser, kept across reloads and datasets. */
+export const PRECISION_KEY = 'thotsakan-display-precision'
+
+function savedPrecision(): number {
+  try {
+    const raw = localStorage.getItem(PRECISION_KEY)
+    return raw === null ? PRECISION_DEFAULT : clampPrecision(raw)
+  } catch {
+    return PRECISION_DEFAULT
+  }
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -41,7 +54,7 @@ const initialState: DataState = {
   filters: {},
   numericCols: [],
   categoricalCols: [],
-  displayPrecision: 4,
+  displayPrecision: PRECISION_DEFAULT,
   status: 'idle',
   errorMsg: '',
 }
@@ -82,7 +95,8 @@ function reducer(state: DataState, action: Action): DataState {
       return { ...state, status: 'error', errorMsg: action.payload }
 
     case 'CLEAR':
-      return { ...initialState }
+      // Removing the data keeps the reader's display preference.
+      return { ...initialState, displayPrecision: state.displayPrecision }
 
     case 'SET_FILTER': {
       const { col, values } = action.payload
@@ -156,7 +170,7 @@ interface DataContextValue {
 const DataContext = createContext<DataContextValue | null>(null)
 
 export function DataProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, initialState)
+  const [state, dispatch] = useReducer(reducer, initialState, (init) => ({ ...init, displayPrecision: savedPrecision() }))
 
   // Memoized: a new array on every render made every consumer recompute, and froze the page on large files.
   const filteredRows = useMemo(() => state.dataset
@@ -209,8 +223,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const reclassify = useCallback((col: string, to: 'numeric' | 'categorical') =>
     dispatch({ type: 'RECLASSIFY', payload: { col, to } }), [])
 
-  const setPrecision = useCallback((p: number) =>
-    dispatch({ type: 'SET_PRECISION', payload: p }), [])
+  const setPrecision = useCallback((p: number) => {
+    const precision = clampPrecision(p)
+    try { localStorage.setItem(PRECISION_KEY, String(precision)) } catch { /* private mode: keep it for this visit */ }
+    dispatch({ type: 'SET_PRECISION', payload: precision })
+  }, [])
 
   const getNumericData = useCallback((col: string) =>
     state.dataset ? extractNumeric(filteredRows, col) : [], [state.dataset, filteredRows])
