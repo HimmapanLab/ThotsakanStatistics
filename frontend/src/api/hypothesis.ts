@@ -1,3 +1,4 @@
+import { postJson } from "./client";
 const BASE_URL = "/api/hypothesis";
 
 export const ONE_SAMPLE_T = "One sample Student's t-test";
@@ -83,21 +84,6 @@ export interface HypothesisResponse {
 }
 
 export const hypothesisApi = {
-  runTest: async (params: HypothesisParams): Promise<HypothesisResponse> => {
-    const response = await fetch(`${BASE_URL}/test`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-session-id": params.session_id,
-      },
-      body: JSON.stringify(params),
-    });
-    if (!response.ok) {
-      const text = await response.text();
-      let errStr = text;
-      try { errStr = JSON.parse(text).detail || text; } catch {}
-      throw new Error(errStr);
-    }
-    return response.json();
-  },
+  runTest: (params: HypothesisParams, signal?: AbortSignal): Promise<HypothesisResponse> =>
+    postJson<HypothesisResponse>(`${BASE_URL}/test`, params, { sessionId: params.session_id, signal }),
 };

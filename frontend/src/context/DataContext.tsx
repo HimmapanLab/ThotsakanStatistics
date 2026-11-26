@@ -4,12 +4,17 @@
 import {
   createContext,
   useContext,
+  useEffect,
   useReducer,
   useCallback,
   useMemo,
+  useRef,
+  useState,
   type ReactNode,
 } from 'react'
 import { parseFile, extractNumeric, uniqueValues, type ParsedDataset } from '../utils/parseFile'
+import { liveSessionId, resetSessionAliases, setSessionRenewer, uploadCsv } from '../api/client'
+import { forgetSession, getCsvStore, loadSession, saveSession, type SavedSession } from '../lib/sessionStore'
 import { clampPrecision, PRECISION_DEFAULT } from '../utils/formatNumber'
 
 /** The display precision is a preference of this browser, kept across reloads and datasets. */
@@ -45,6 +50,8 @@ export interface DataState {
   // Status
   status: 'idle' | 'loading' | 'ready' | 'error'
   errorMsg: string
+  /** One line for the Data tab, e.g. why the data from last time could not be brought back. */
+  notice: string
 }
 
 const initialState: DataState = {
@@ -57,13 +64,15 @@ const initialState: DataState = {
   displayPrecision: PRECISION_DEFAULT,
   status: 'idle',
   errorMsg: '',
+  notice: '',
 }
 
 // ─── Reducer ──────────────────────────────────────────────────────────────────
 
 type Action =
   | { type: 'LOADING' }
-  | { type: 'LOADED'; payload: { dataset: ParsedDataset; filename: string; sessionId: string } }
+  | { type: 'LOADED'; payload: { dataset: ParsedDataset; filename: string; sessionId: string; restored?: Pick<SavedSession, 'numericCols' | 'categoricalCols' | 'filters'> } }
+  | { type: 'NOTICE'; payload: string }
   | { type: 'ERROR'; payload: string }
   | { type: 'CLEAR' }
   | { type: 'SET_FILTER'; payload: { col: string; values: string[] } }
@@ -77,19 +86,30 @@ function reducer(state: DataState, action: Action): DataState {
       return { ...state, status: 'loading', errorMsg: '' }
 
     case 'LOADED': {
-      const { dataset, filename, sessionId } = action.payload
+      const { dataset, filename, sessionId, restored } = action.payload
+      // After a refresh, keep the column types and filters the user had, for columns that still exist.
+      const known = (cols: string[] | undefined) => cols?.filter((col) => dataset.headers.includes(col))
+      const filters = Object.fromEntries(Object.entries(restored?.filters ?? {})
+        .filter(([col, values]) => dataset.headers.includes(col) && Array.isArray(values) && values.length > 0))
+      const numeric = known(restored?.numericCols)
+      const categorical = known(restored?.categoricalCols)
+      const restoredTypes = !!numeric && !!categorical
       return {
         ...state,
         dataset,
         filename,
         sessionId,
-        numericCols: dataset.numericCols,
-        categoricalCols: dataset.categoricalCols,
-        filters: {},
+        numericCols: restoredTypes ? numeric : dataset.numericCols,
+        categoricalCols: restoredTypes ? categorical : dataset.categoricalCols,
+        filters,
         status: 'ready',
         errorMsg: '',
+        notice: '',
       }
     }
+
+    case 'NOTICE':
+      return { ...state, notice: action.payload }
 
     case 'ERROR':
       return { ...state, status: 'error', errorMsg: action.payload }
@@ -158,8 +178,12 @@ interface DataContextValue {
   getNumericData: (col: string) => number[]
   getUniqueValues: (col: string) => string[]
 
+  /** True while the data from last time is being brought back after a refresh. */
+  restoring: boolean
+
   // Actions
-  loadFile: (file: File) => Promise<void>
+  /** Load a CSV. `exampleKey` is the file name of a bundled example, so it can be fetched again later. */
+  loadFile: (file: File, options?: { exampleKey?: string | null }) => Promise<void>
   clearData: () => void
   setFilter: (col: string, values: string[]) => void
   clearFilters: () => void
@@ -180,40 +204,92 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // One sorted list of categories per column and dataset, computed the first time it is asked for.
   const uniqueCache = useMemo(() => new Map<string, string[]>(), [state.dataset])
 
-  const loadFile = useCallback(async (file: File) => {
+  const [restoring, setRestoring] = useState(() => loadSession() !== null)
+  // The CSV text and example of the loaded data, so an expired session can be renewed by uploading it again.
+  const source = useRef<{ text: string; filename: string; exampleKey: string | null } | null>(null)
+
+  const loadFile = useCallback(async (file: File, options?: { exampleKey?: string | null }) => {
     dispatch({ type: 'LOADING' })
     try {
-      const dataset = await parseFile(file)
-      
-      const formData = new FormData()
-      formData.append('file', file)
-      
-      const res = await fetch('/api/data/upload', {
-        method: 'POST',
-        body: formData
-      })
-      
-      if (!res.ok) {
-        const text = await res.text()
-        let errStr = text
-        try {
-          const errObj = JSON.parse(text)
-          errStr = errObj.detail || text
-        } catch {
-          // It's just plain text, or empty
-          if (!text) errStr = `Proxy or Backend error: status ${res.status}`
-        }
-        throw new Error(errStr)
-      }
-      const data = await res.json()
-      
-      dispatch({ type: 'LOADED', payload: { dataset, filename: file.name, sessionId: data.session_id } })
+      const [dataset, text, sessionId] = await Promise.all([parseFile(file), file.text(), uploadCsv(file)])
+      const exampleKey = options?.exampleKey ?? null
+      resetSessionAliases()
+      source.current = { text, filename: file.name, exampleKey }
+      saveSession({ sessionId, filename: file.name, exampleKey })
+      // Only an uploaded file needs a copy in the browser; an example is fetched again.
+      if (exampleKey) void getCsvStore().clear()
+      else void getCsvStore().put(text)
+      dispatch({ type: 'LOADED', payload: { dataset, filename: file.name, sessionId } })
     } catch (e) {
-      dispatch({ type: 'ERROR', payload: String(e) })
+      dispatch({ type: 'ERROR', payload: e instanceof Error ? e.message : String(e) })
     }
   }, [])
 
-  const clearData = useCallback(() => dispatch({ type: 'CLEAR' }), [])
+  // Bring back the data from last time: the example from /datasets, an upload from IndexedDB. The saved session
+  // id is used as is; if the server has forgotten it, the first request renews it (api/client.ts).
+  useEffect(() => {
+    const saved = loadSession()
+    if (!saved) return
+    let cancelled = false
+    void (async () => {
+      try {
+        let text: string | null = null
+        if (saved.exampleKey) {
+          const response = await fetch(`${import.meta.env.BASE_URL}datasets/${saved.exampleKey}`)
+          if (response.ok) text = await response.text()
+        } else {
+          text = await getCsvStore().get()
+        }
+        if (cancelled) return
+        if (!text) throw new Error('missing')
+        const dataset = await parseFile(new File([text], saved.filename, { type: 'text/csv' }))
+        if (cancelled) return
+        source.current = { text, filename: saved.filename, exampleKey: saved.exampleKey }
+        dispatch({ type: 'LOADED', payload: { dataset, filename: saved.filename, sessionId: saved.sessionId, restored: saved } })
+      } catch {
+        if (cancelled) return
+        forgetSession()
+        dispatch({ type: 'NOTICE', payload: `${saved.filename} from your last visit is not stored in this browser any more. Load it again to continue.` })
+      } finally {
+        if (!cancelled) setRestoring(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
+
+  // Renew an expired session by uploading the same CSV again.
+  useEffect(() => {
+    setSessionRenewer(async () => {
+      const current = source.current
+      if (!current) return null
+      const fresh = await uploadCsv(new File([current.text], current.filename, { type: 'text/csv' }))
+      const saved = loadSession()
+      saveSession({ ...(saved ?? { filename: current.filename, exampleKey: current.exampleKey }), sessionId: fresh })
+      return fresh
+    })
+    return () => setSessionRenewer(null)
+  }, [])
+
+  // Keep the saved record in step with column types and filters.
+  useEffect(() => {
+    if (state.status !== 'ready' || !state.sessionId || !source.current) return
+    saveSession({
+      sessionId: liveSessionId(state.sessionId),
+      filename: state.filename,
+      exampleKey: source.current.exampleKey,
+      numericCols: state.numericCols,
+      categoricalCols: state.categoricalCols,
+      filters: state.filters,
+    })
+  }, [state.status, state.sessionId, state.filename, state.numericCols, state.categoricalCols, state.filters])
+
+  const clearData = useCallback(() => {
+    source.current = null
+    resetSessionAliases()
+    forgetSession()
+    void getCsvStore().clear()
+    dispatch({ type: 'CLEAR' })
+  }, [])
 
   const setFilter = useCallback((col: string, values: string[]) =>
     dispatch({ type: 'SET_FILTER', payload: { col, values } }), [])
@@ -248,6 +324,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       filteredRows,
       getNumericData,
       getUniqueValues,
+      restoring,
       loadFile,
       clearData,
       setFilter,
@@ -255,7 +332,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       reclassify,
       setPrecision,
     }}>
-      {children}
+      {restoring
+        ? <p role="status" className="p-6 text-sm text-[var(--color-text-muted)]">Bringing back your data…</p>
+        : children}
     </DataContext.Provider>
   )
 }

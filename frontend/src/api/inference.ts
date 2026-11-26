@@ -1,3 +1,4 @@
+import { postJson } from "./client";
 const BASE_URL = "/api/inference";
 
 export interface EstimatorRequest {
@@ -61,75 +62,15 @@ export interface ConfidenceRegionsResponse {
 }
 
 export const inferenceApi = {
-  getEstimators: async (req: EstimatorRequest): Promise<EstimatorOptions> => {
-    const response = await fetch(`${BASE_URL}/estimators`, {
-      method: "POST",
-      headers: { 
-        "Content-Type": "application/json",
-        "x-session-id": req.session_id
-      },
-      body: JSON.stringify(req),
-    });
-    if (!response.ok) {
-      const text = await response.text();
-      let errStr = text;
-      try { errStr = JSON.parse(text).detail || text; } catch {}
-      throw new Error(errStr);
-    }
-    return response.json();
-  },
+  getEstimators: (req: EstimatorRequest, signal?: AbortSignal): Promise<EstimatorOptions> =>
+    postJson<EstimatorOptions>(`${BASE_URL}/estimators`, req, { sessionId: req.session_id, signal }),
 
-  computeCI: async (params: InferenceParams): Promise<IntervalsResponse> => {
-    const response = await fetch(`${BASE_URL}/ci`, {
-      method: "POST",
-      headers: { 
-        "Content-Type": "application/json",
-        "x-session-id": params.session_id
-      },
-      body: JSON.stringify(params),
-    });
-    if (!response.ok) {
-      const text = await response.text();
-      let errStr = text;
-      try { errStr = JSON.parse(text).detail || text; } catch {}
-      throw new Error(errStr);
-    }
-    return response.json();
-  },
+  computeCI: (params: InferenceParams, signal?: AbortSignal): Promise<IntervalsResponse> =>
+    postJson<IntervalsResponse>(`${BASE_URL}/ci`, params, { sessionId: params.session_id, signal }),
 
-  computePI: async (params: InferenceParams): Promise<IntervalsResponse> => {
-    const response = await fetch(`${BASE_URL}/pi`, {
-      method: "POST",
-      headers: { 
-        "Content-Type": "application/json",
-        "x-session-id": params.session_id
-      },
-      body: JSON.stringify(params),
-    });
-    if (!response.ok) {
-      const text = await response.text();
-      let errStr = text;
-      try { errStr = JSON.parse(text).detail || text; } catch {}
-      throw new Error(errStr);
-    }
-    return response.json();
-  },
+  computePI: (params: InferenceParams, signal?: AbortSignal): Promise<IntervalsResponse> =>
+    postJson<IntervalsResponse>(`${BASE_URL}/pi`, params, { sessionId: params.session_id, signal }),
 
-  computeRegions: async (params: ConfidenceRegionsParams): Promise<ConfidenceRegionsResponse> => {
-    const response = await fetch(`${BASE_URL}/regions`, {
-      method: "POST",
-      headers: { 
-        "Content-Type": "application/json",
-        "x-session-id": params.session_id
-      },
-      body: JSON.stringify(params),
-    });
-    if (!response.ok) {
-      const text = await response.text();
-      let errStr = text;
-      try { errStr = JSON.parse(text).detail || text; } catch {}
-      throw new Error(errStr);
-    }
-    return response.json();
-  },
+  computeRegions: (params: ConfidenceRegionsParams, signal?: AbortSignal): Promise<ConfidenceRegionsResponse> =>
+    postJson<ConfidenceRegionsResponse>(`${BASE_URL}/regions`, params, { sessionId: params.session_id, signal }),
 };

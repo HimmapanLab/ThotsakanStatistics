@@ -1,3 +1,4 @@
+import { postJson } from "./client";
 const BASE_URL = "/api/graphical";
 
 export type GraphType = "Histogram" | "ECDF";
@@ -44,26 +45,6 @@ export interface GraphicalResponse {
 }
 
 export const graphicalApi = {
-  computeGraph: async (
-    sessionId: string,
-    params: GraphicalParams,
-    signal?: AbortSignal
-  ): Promise<GraphicalResponse> => {
-    const response = await fetch(`${BASE_URL}/compute`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-session-id": sessionId
-      },
-      body: JSON.stringify(params),
-      signal,
-    });
-    if (!response.ok) {
-      const text = await response.text();
-      let errStr = text;
-      try { errStr = JSON.parse(text).detail || text; } catch {}
-      throw new Error(errStr);
-    }
-    return response.json();
-  }
+  computeGraph: (sessionId: string, params: GraphicalParams, signal?: AbortSignal): Promise<GraphicalResponse> =>
+    postJson<GraphicalResponse>(`${BASE_URL}/compute`, params, { sessionId, signal }),
 };
