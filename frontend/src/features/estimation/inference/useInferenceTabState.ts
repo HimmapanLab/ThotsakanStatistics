@@ -2,6 +2,7 @@
 import { useData } from '../../../context/DataContext'
 import { inferenceApi, type InferenceParams, type IntervalsResponse, type ConfidenceRegionsResponse } from '../../../api/inference'
 import { DEFAULT_SELECTED, DEFAULT_SIGMA_ESTIMATOR, REGION_FLAGS, methodFlags, selectionInfo } from './inferenceOptions'
+import { loadPageState, useSavePageState } from '../../../lib/pageState'
 
 const AUTO_RUN_DELAY_MS = 250
 /** Bootstrap resamples thousands of times, so wait a little longer for the user to stop adjusting. */
@@ -94,7 +95,12 @@ function computationDraft(draft: InferenceDraft) {
 }
 export function useInferenceTabState() {
   const { state: dataState, getNumericData } = useData()
-  const [draft, updateDraft] = useState(() => initialInferenceDraft(dataState.numericCols[0]))
+  const [draft, updateDraft] = useState(() => {
+    const initial = initialInferenceDraft(dataState.numericCols[0])
+    const restored = { ...initial, ...loadPageState<typeof initial>('inference', dataState.filename) }
+    return dataState.numericCols.includes(restored.column) ? restored : { ...restored, column: initial.column }
+  })
+  useSavePageState('inference', dataState.status === 'ready' ? dataState.filename : '', draft)
   const draftRef = useRef(draft)
   const [ciResult, setCiResult] = useState<IntervalsResponse | null>(null)
   const [piResult, setPiResult] = useState<IntervalsResponse | null>(null)

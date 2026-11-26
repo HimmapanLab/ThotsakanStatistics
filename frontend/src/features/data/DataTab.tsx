@@ -390,6 +390,9 @@ export default function DataTab() {
             Upload a CSV file, or pick an example dataset, to use across all analysis tabs.
             {hasData && ` · ${state.filename}`}
           </p>
+          {state.notice && !hasData && (
+            <p role="status" className="mt-2 text-xs text-[var(--color-warning-text)]">{state.notice}</p>
+          )}
         </div>
 
         {/* Upload zone — always visible but compact when data loaded */}

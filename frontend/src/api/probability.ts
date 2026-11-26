@@ -1,3 +1,4 @@
+import { postJson } from './client'
 export interface DistributionRequest {
   distName: string
   params: Record<string, number>
@@ -34,19 +35,7 @@ export async function computeNormalPDF(
   req: NormalPDFRequest,
   signal?: AbortSignal,
 ): Promise<NormalPDFResponse> {
-  const res = await fetch('/api/probability/normal-pdf', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(req),
-    signal,
-  })
-  if (!res.ok) {
-    const text = await res.text()
-    let msg = text
-    try { msg = JSON.parse(text).detail ?? text } catch { /* empty */ }
-    throw new Error(msg)
-  }
-  return res.json()
+  return postJson<NormalPDFResponse>('/api/probability/normal-pdf', req, { signal })
 }
 
 export interface DistributionResponse {
@@ -68,17 +57,5 @@ export async function computeDistribution(
   req: DistributionRequest,
   signal?: AbortSignal,
 ): Promise<DistributionResponse> {
-  const res = await fetch('/api/probability/compute', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(req),
-    signal,
-  })
-  if (!res.ok) {
-    const text = await res.text()
-    let msg = text
-    try { msg = JSON.parse(text).detail ?? text } catch { /* empty */ }
-    throw new Error(msg)
-  }
-  return res.json()
+  return postJson<DistributionResponse>('/api/probability/compute', req, { signal })
 }

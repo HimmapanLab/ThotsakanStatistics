@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useData } from '../../../context/DataContext'
 import { computeDescriptiveStats, type DescriptiveResult } from '../../../api/descriptive'
 import { DEFAULT_SELECTED, isRowVisible, parseQuantiles, visibleStatIds } from './descriptiveOptions'
+import { loadPageState, useSavePageState } from '../../../lib/pageState'
 
 const DEBOUNCE_MS = 250
 const DEFAULT_QUANTILES = '0.25, 0.5, 0.75'
@@ -110,7 +111,11 @@ function requestKey(cfg: DescriptiveConfig, sessionId: string, filters: unknown)
 
 export function useDescriptiveTabState() {
   const { state: dataState } = useData()
-  const [draft, updateDraft] = useState(() => initialDescriptiveDraft(dataState.numericCols[0]))
+  const [draft, updateDraft] = useState(() => {
+    const initial = initialDescriptiveDraft(dataState.numericCols[0])
+    return { ...initial, ...loadPageState<typeof initial>('descriptive', dataState.filename) }
+  })
+  useSavePageState('descriptive', dataState.status === 'ready' ? dataState.filename : '', draft)
   const [applied, setApplied] = useState<AppliedDescriptive | null>(null)
   const [isComputing, setIsComputing] = useState(false)
   const [error, setError] = useState<string | null>(null)

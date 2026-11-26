@@ -1,3 +1,4 @@
+import { postJson } from './client'
 export interface StatRow {
   category: 'Quantiles' | 'Central Tendency' | 'Dispersion' | 'Shape' | 'Extremes'
   measure: string
@@ -42,35 +43,13 @@ export interface DescriptiveInput {
 }
 
 export async function computeDescriptiveStats(input: DescriptiveInput, signal?: AbortSignal): Promise<DescriptiveResult> {
-  const res = await fetch('/api/descriptive/compute', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-session-id': input.sessionId
-    },
-    signal,
-    body: JSON.stringify({
-      session_id: input.sessionId,
-      column: input.column,
-      quantileProbs: input.quantileProbs,
-      trimAlpha: input.trimAlpha,
-      winsorLimits: input.winsorLimits,
-      weightsCol: input.weightsCol,
-      filters: input.filters
-    })
-  })
-
-  if (!res.ok) {
-    const text = await res.text()
-    let errStr = text
-    try {
-      const errObj = JSON.parse(text)
-      errStr = errObj.detail || text
-    } catch {
-      if (!text) errStr = `Backend proxy error: status ${res.status}`
-    }
-    throw new Error(errStr)
-  }
-
-  return res.json()
+  return postJson<DescriptiveResult>('/api/descriptive/compute', {
+    session_id: input.sessionId,
+    column: input.column,
+    quantileProbs: input.quantileProbs,
+    trimAlpha: input.trimAlpha,
+    winsorLimits: input.winsorLimits,
+    weightsCol: input.weightsCol,
+    filters: input.filters,
+  }, { sessionId: input.sessionId, signal })
 }

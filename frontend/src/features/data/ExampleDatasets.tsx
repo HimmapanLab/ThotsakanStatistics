@@ -41,7 +41,7 @@ export default function ExampleDatasets() {
     try {
       const response = await fetch(`${import.meta.env.BASE_URL}datasets/${dataset.file}`)
       if (!response.ok) throw new Error(`status ${response.status}`)
-      loadFile(new File([await response.text()], dataset.file, { type: 'text/csv' }))
+      loadFile(new File([await response.text()], dataset.file, { type: 'text/csv' }), { exampleKey: dataset.file })
     } catch (cause) {
       setError(`Couldn’t load ${dataset.title} (${cause instanceof Error ? cause.message : String(cause)}).`)
     }

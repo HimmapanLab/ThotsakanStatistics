@@ -7,6 +7,7 @@ import {
   configForDataset, normalApplies, toParams, updateGraphicalConfig, validateGraphicalConfig,
   type GraphicalConfig, type GraphicalFieldErrors,
 } from './graphicalState'
+import { loadPageState, useSavePageState } from '../../../lib/pageState'
 
 export type { GraphicalConfig } from './graphicalState'
 export { DEFAULT_CONFIG } from './graphicalState'
@@ -32,6 +33,16 @@ function freshDraft(sessionId: string | null, columns: string[]): Draft {
   return { sessionId, cfg: { ...DEFAULT_CONFIG, column: columns[0] ?? '' }, winsorRaw: '0.1, 0.1', autoBins: true }
 }
 
+/** The inputs saved before a refresh, for this dataset, or a fresh draft. */
+function restoredDraft(sessionId: string | null, columns: string[], filename: string): Draft {
+  const fresh = freshDraft(sessionId, columns)
+  const saved = loadPageState<Omit<Draft, 'sessionId'>>('graphical', filename)
+  if (!saved?.cfg) return fresh
+  const cfg = { ...fresh.cfg, ...saved.cfg }
+  if (!columns.includes(cfg.column)) cfg.column = fresh.cfg.column
+  return { sessionId, cfg, winsorRaw: saved.winsorRaw ?? fresh.winsorRaw, autoBins: saved.autoBins ?? fresh.autoBins }
+}
+
 /** The draft survives panel unmounts; every setting updates the plot after a short pause. */
 export function useGraphicalTabState() {
   const { state: dataState } = useData()
@@ -42,8 +53,9 @@ export function useGraphicalTabState() {
   const ownerRef = useRef(owner)
   ownerRef.current = owner
 
-  const [storedDraft, setDraft] = useState(() => freshDraft(sessionId, numericCols))
+  const [storedDraft, setDraft] = useState(() => restoredDraft(sessionId, numericCols, filename))
   const draft = storedDraft.sessionId === sessionId ? storedDraft : freshDraft(sessionId, numericCols)
+  useSavePageState('graphical', dataState.status === 'ready' ? filename : '', { cfg: draft.cfg, winsorRaw: draft.winsorRaw, autoBins: draft.autoBins })
   const cfg = configForDataset(draft.cfg, numericCols)
   const [applied, setApplied] = useState<Applied | null>(null)
   const [isComputing, setIsComputing] = useState(false)

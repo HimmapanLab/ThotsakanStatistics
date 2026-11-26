@@ -57,6 +57,7 @@ const HypothesisNotebookSlot = lazy(() =>
 
 // Lazy-loaded Graphical Analysis panels
 import { useGraphicalTabState } from './features/estimation/graphical/useGraphicalTabState'
+import { loadPageState, useSavePageState } from './lib/pageState'
 const GraphicalControlsSlot = lazy(() =>
   import('./features/estimation/graphical/GraphicalTab').then((m) => ({ default: m.ControlsSlot })))
 const GraphicalObservationSlot = lazy(() =>
@@ -150,12 +151,21 @@ export default function App() {
 
   // ── Probability / Common Distributions state ───────────────────────────────
   const firstDiscrete = DISTRIBUTIONS.find((d) => d.type === 'discrete')!
-  const [probModelType, setProbModelType] = useState<'discrete' | 'continuous'>('discrete')
-  const [probDistName, setProbDistName] = useState(firstDiscrete.name)
+  // The distribution, parameters and query from before a refresh, when they still name a known distribution.
+  const [savedProb] = useState(() => {
+    const saved = loadPageState<{ modelType: 'discrete' | 'continuous'; distName: string; paramValues: Record<string, number>; query: DistQuery }>('probability', '*')
+    const dist = saved && DISTRIBUTIONS.find((d) => d.name === saved.distName)
+    return dist && saved.paramValues && saved.query && dist.params.every((p) => typeof saved.paramValues![p.key] === 'number')
+      ? { modelType: dist.type as 'discrete' | 'continuous', distName: dist.name, paramValues: saved.paramValues, query: saved.query }
+      : null
+  })
+  const [probModelType, setProbModelType] = useState<'discrete' | 'continuous'>(savedProb?.modelType ?? 'discrete')
+  const [probDistName, setProbDistName] = useState(savedProb?.distName ?? firstDiscrete.name)
   const [probParamValues, setProbParamValues] = useState<Record<string, number>>(
-    Object.fromEntries(firstDiscrete.params.map((p) => [p.key, p.default]))
+    savedProb?.paramValues ?? Object.fromEntries(firstDiscrete.params.map((p) => [p.key, p.default]))
   )
-  const [probQuery, setProbQuery] = useState<DistQuery>(() => defaultQuery(firstDiscrete.name, probParamValues))
+  const [probQuery, setProbQuery] = useState<DistQuery>(() => savedProb?.query ?? defaultQuery(firstDiscrete.name, probParamValues))
+  useSavePageState('probability', '*', { modelType: probModelType, distName: probDistName, paramValues: probParamValues, query: probQuery })
 
   const probDistParams = useMemo(() => ({
     distName: probDistName,

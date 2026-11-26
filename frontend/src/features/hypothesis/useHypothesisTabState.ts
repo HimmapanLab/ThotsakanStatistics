@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { hypothesisApi, ONE_SAMPLE_T, TWO_SAMPLE_T, EQUAL_VARIANCE, ONE_WAY_ANOVA, type Alternative, type GroupSpec, type HypothesisResponse } from '../../api/hypothesis';
+import { loadPageState, useSavePageState } from '../../lib/pageState';
 
 export type HypothesisConfig = {
   column: string; testType: string; alpha: number; alternative: Alternative;
@@ -95,7 +96,12 @@ export function useHypothesisTabState() {
   const { state: data, filteredRows, getUniqueValues } = useData();
   const prepare = useCallback((draft: HypothesisDraft) => withGroupDefaults(draft, data.categoricalCols, getUniqueValues),
     [data.categoricalCols, getUniqueValues]);
-  const [draft, updateDraft] = useState(() => prepare(initialDraft(data.numericCols[0])));
+  const [draft, updateDraft] = useState(() => {
+    const initial = initialDraft(data.numericCols[0]);
+    const restored = { ...initial, ...loadPageState<HypothesisDraft>('hypothesis', data.filename) };
+    return prepare(data.numericCols.includes(restored.column) ? restored : { ...restored, column: initial.column });
+  });
+  useSavePageState('hypothesis', data.status === 'ready' ? data.filename : '', draft);
   const draftRef = useRef(draft);
   const [result, setResult] = useState<HypothesisResponse | null>(null);
   const [applied, setApplied] = useState<{ config: HypothesisConfig; filename: string; filteredN: number } | null>(null);
