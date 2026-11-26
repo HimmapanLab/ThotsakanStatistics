@@ -63,7 +63,7 @@ export default function ExampleDatasets() {
                 <span className="flex flex-wrap items-center gap-2 text-sm font-semibold text-[var(--color-text)]">
                   {dataset.title}
                   {dataset.isDefault && (
-                    <span className="rounded border border-indigo-400/40 bg-indigo-500/20 px-1.5 py-0.5 text-xs text-indigo-300">Default</span>
+                    <span className="rounded border border-[var(--q-data)] bg-[var(--q-data-fill)] px-1.5 py-0.5 text-xs text-[var(--accent)]">Default</span>
                   )}
                   <span className="font-mono text-xs font-normal text-[var(--color-text-muted)]">
                     {dataset.rows.toLocaleString('en-US')} rows × {dataset.columns} columns
@@ -75,7 +75,7 @@ export default function ExampleDatasets() {
           ))}
         </ul>
       )}
-      {error && <p role="alert" className="px-4 pb-3 text-xs text-red-400">{error}</p>}
+      {error && <p role="alert" className="px-4 pb-3 text-xs text-[var(--error)]">{error}</p>}
     </div>
   )
 }

@@ -51,7 +51,7 @@ export default function InferenceControls({ state }: { state: InferenceState }) 
       <Accordion title={piNode.label} open={draft.piOpen || !!fieldErrors.selected} onToggle={() => setDraft({ piOpen: !draft.piOpen })}>
         <CheckboxTree label="Show" nodes={piNode.children!} checked={draft.selected} onChange={selected => setDraft({ selected })} />
       </Accordion>
-      {fieldErrors.selected && <p role="alert" className="mb-3 text-xs text-red-400">{fieldErrors.selected}</p>}
+      {fieldErrors.selected && <p role="alert" className="mb-3 text-xs text-[var(--error)]">{fieldErrors.selected}</p>}
       {/* What to show comes first; the settings that tune it sit together below (one section, as in every tab). */}
       <Divider />
       <SectionLabel>Settings</SectionLabel>
@@ -67,7 +67,7 @@ export default function InferenceControls({ state }: { state: InferenceState }) 
         textValue={draft.samplesStr} onTextChange={samplesStr => setDraft({ samplesStr })} resetSignal={resetGeneration}
         hint="Number of resamples. More resamples take longer." error={fieldErrors.samplesStr} />}
     </>}
-    {Object.keys(fieldErrors).length > 0 && <p role="alert" className="text-sm text-red-400">Check the highlighted fields.</p>}
+    {Object.keys(fieldErrors).length > 0 && <p role="alert" className="text-sm text-[var(--error)]">Check the highlighted fields.</p>}
     <p className="mt-2 text-sm text-[var(--color-text-muted)]">{info.anyBootstrap && !isRegions ? 'Results update automatically. Bootstrap takes a moment.' : 'Results update automatically.'}</p>
     <AnalysisActions onReset={state.handleReset} />
   </form>

@@ -3,8 +3,10 @@
  * Mirrors the Python app's Home tab: hero, vision, product cards, affiliations.
  */
 
+import type { Route } from '../../app/routes'
+
 interface HomeTabProps {
-  onNavigate: (tab: string) => void
+  onNavigate: (route: Route) => void
 }
 
 // ── Product cards ────────────────────────────────────────────────────────────
@@ -17,7 +19,7 @@ const PRODUCTS = [
     description:
       'Explore data, test ideas, and connect statistical theory with computational experimentation.',
     status: 'active' as const,
-    tab: 'probability',
+    tab: 'probability' as Route,
     repo: 'https://github.com/IrvingGomez/ThotsakanStatistics',
   },
   {
@@ -32,10 +34,9 @@ const PRODUCTS = [
   },
 ]
 
-const FEATURES = [
-  { tab: 'data',        icon: '📁', label: 'Data',              desc: 'Load datasets and explore their structure' },
+const FEATURES: { tab: Route; icon: string; label: string; desc: string }[] = [
   { tab: 'probability', icon: '🎲', label: 'Probability',       desc: 'Explore distributions and model randomness' },
-  { tab: 'estimation',  icon: '📐', label: 'Statistics',        desc: 'Summarize data and quantify uncertainty' },
+  { tab: 'statistics-graphical', icon: '📐', label: 'Statistics',        desc: 'Summarize data and quantify uncertainty' },
   { tab: 'hypothesis',  icon: '🧪', label: 'Hypothesis Testing', desc: 'Evaluate claims and compare groups' },
   { tab: 'regression',  icon: '📈', label: 'Linear Regression',  desc: 'Model relationships and interpret evidence' },
 ]
@@ -102,7 +103,7 @@ export default function HomeTab({ onNavigate }: HomeTabProps) {
                   bg-[var(--color-bg-panel)] border border-[var(--color-border)]
                   transition-all cursor-pointer
                   ${product.status === 'active'
-                    ? 'hover:border-[var(--color-accent)] hover:shadow-lg hover:shadow-indigo-500/10'
+                    ? 'hover:border-[var(--color-accent)] hover:shadow-[var(--shadow-pop)]'
                     : 'opacity-60 cursor-not-allowed'
                   }`}
               >
@@ -120,7 +121,7 @@ export default function HomeTab({ onNavigate }: HomeTabProps) {
                   {product.description}
                 </p>
                 {product.status === 'coming-soon' && (
-                  <span className="text-xs uppercase tracking-widest text-amber-400 font-semibold">
+                  <span className="text-xs uppercase tracking-widest text-[var(--warn)] font-semibold">
                     Coming soon
                   </span>
                 )}
@@ -155,7 +156,7 @@ export default function HomeTab({ onNavigate }: HomeTabProps) {
                 type="button"
                 onClick={() => onNavigate(f.tab)}
                 className="flex items-start gap-2.5 rounded-lg p-3 text-left
-                  hover:bg-white/5 transition-colors cursor-pointer"
+                  hover:bg-[var(--hover-overlay)] transition-colors cursor-pointer"
               >
                 <span className="text-lg mt-0.5">{f.icon}</span>
                 <div>

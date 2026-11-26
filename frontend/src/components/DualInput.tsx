@@ -223,7 +223,7 @@ export default function DualInput({
           focus:outline-none focus:border-[var(--color-accent)]"
       />
       {hint && <p id={`${id}-hint`} className="text-xs text-[var(--color-text-muted)]">{hint}</p>}
-      {error && <p id={`${id}-error`} className="text-xs text-red-400">{error}</p>}
+      {error && <p id={`${id}-error`} className="text-xs text-[var(--error)]">{error}</p>}
     </div>
   )
 }

@@ -25,7 +25,7 @@ export default function SubHeader({ subTabs, activeSubTab, onSubTabChange }: Sub
             ${
               activeSubTab === tab.key
                 ? 'bg-[var(--color-accent)]/20 text-[var(--color-accent)] border border-[var(--color-accent)]/40'
-                : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-white/5'
+                : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--hover-overlay)]'
             }`}
         >
           {tab.label}

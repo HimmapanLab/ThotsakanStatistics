@@ -1,0 +1,136 @@
+/* Design tokens for the rebuilt Lab UI (light first). Ported from the approved prototype's tokens.css, plus the
+   illustration colours and motion from its app.css and kit.css. The only place these values are written down:
+   style.css re-points the old --color-* variables here, and plot/theme.ts mirrors the plot colours for Plotly. */
+:root {
+  /* surfaces and lines */
+  --ground: #f0f4f9;
+  --surface: #fcfdff;
+  --inset: #f4f7fb;
+  --field: #ffffff;
+  --row-tint: #eaeef5;
+  --line: #d6dbe4;
+  --line-strong: #68758d;
+
+  /* text */
+  --ink: #151d2b;
+  --ink-muted: #434d61;
+  --ink-faint: #5d677b;
+
+  /* actions */
+  --accent: #1d49a0;
+  --accent-hover: #08307f;
+  --action: #315bc0;
+  --action-ink: #ffffff;
+  --focus: #1d49a0;
+
+  /* a colour names a quantity */
+  --q-data: #4b55c9;
+  --q-data-fill: #d3d6f5;
+  --q-data-band: rgba(75, 85, 201, 0.16);
+  --q-mean: #1565c0;
+  --q-median: #0b7a45;
+  --q-deviation: #9a5800;
+  --q-prediction: #b4235a;
+  --q-kde: #8136b5;
+  --q-normal: #b54a0b;
+  --q-quantile: #7a4a9a;
+  --q-shape: #6b5d52;
+  --h-reject: #a3195b;
+  --h-reject-area: rgba(163, 25, 91, 0.16);
+  --h-pvalue-area: rgba(21, 101, 192, 0.22);
+  --p-highlight: #4b55c9;
+  --p-highlight-area: rgba(75, 85, 201, 0.24);
+  --param: #3b4558;
+  --plot-grid: #e4e8ef;
+  --plot-axis: #434d61;
+
+  /* status */
+  --good: #00673f;
+  --warn: #8a5300;
+  --warn-bg: #fdf3e1;
+  --error: #a92227;
+  --error-bg: #fbeaea;
+  --proposal: #6b3fa0;
+
+  /* overlays and elevation */
+  --hover-overlay: rgba(21, 29, 43, 0.06);
+  --press-overlay: rgba(21, 29, 43, 0.12);
+  --scrim: rgba(21, 29, 43, 0.32);
+  --shadow-pop: 0 8px 24px rgba(21, 29, 43, 0.16);
+
+  /* illustration style: flat blue, no strokes (ILLUSTRATION-STYLE.md) */
+  --il-pale: #dfe6f7;
+  --il-medium: #a9bbe9;
+  --il-primary: #4b55c9;
+  --il-ink: #1d49a0;
+  --il-paper: #ffffff;
+
+  /* type */
+  --font-ui: "IBM Plex Sans Thai", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  --fs-door-display: 44px; --lh-door-display: 50px; --fw-door-display: 600;
+  --fs-door-lede: 20px; --lh-door-lede: 30px; --fw-door-lede: 400;
+  --fs-door-title: 22px; --lh-door-title: 28px; --fw-door-title: 600;
+  --fs-title: 22px; --lh-title: 28px; --fw-title: 600;
+  --fs-heading: 18px; --lh-heading: 24px; --fw-heading: 600;
+  --fs-body: 16px; --lh-body: 24px; --fw-body: 400;
+  --fs-label: 15px; --lh-label: 20px; --fw-label: 500;
+  --fs-small: 14px; --lh-small: 20px; --fw-small: 400;
+  --fs-eyebrow: 13px; --lh-eyebrow: 16px; --fw-eyebrow: 600;
+  --fs-num: 16px; --lh-num: 24px; --fw-num: 400;
+  --fs-num-key: 28px; --lh-num-key: 34px; --fw-num-key: 500;
+  --fs-grid: 14px; --lh-grid: 20px; --fw-grid: 400;
+  --fs-tick: 12px; --lh-tick: 16px; --fw-tick: 400;
+
+  /* space and shape */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-pill: 999px;
+
+  /* layout sizes: compact density, picked 2026-11-20 */
+  --control-h: 32px;
+  --hit-min: 28px;
+  --topbar-h: 48px;
+  --pagehead-h: 64px;
+  --rail-w: 48px;
+  --inputs-w: 320px;
+  --drawer-w: 580px;
+  --results-max: 960px;
+  --wm-gutter: 85px;
+
+  /* motion: one easing, 240 to 320 ms, nothing over 400 ms except the carousel scenes */
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --dur-fast: 120ms;
+  --dur: 240ms;
+  --dur-slow: 320ms;
+  --dur-scene: 560ms;
+
+  /* plot strokes */
+  --dash-stat: none;
+  --dash-derived: 2 3;
+  --dash-param: 6 4;
+  --stroke-line: 2;
+  --stroke-fine: 1.25;
+  --stroke-present: 3;
+
+  color-scheme: light;
+}
+
+/* Root text size: Standard is 14 px; Large and Projector step up from there (set by Preferences as data-text). */
+html { font-size: 87.5%; }
+html[data-text="large"] { font-size: 100%; }
+html[data-text="projector"] { font-size: 112.5%; --stroke-line: var(--stroke-present); }
+
+/* The rail grows with the text size */
+html[data-text="large"] { --rail-w: 56px; }
+html[data-text="projector"] { --rail-w: 64px; }
+
+/* A finger needs more than a pointer does */
+@media (pointer: coarse) {
+  :root { --control-h: 44px; --hit-min: 44px; }
+}

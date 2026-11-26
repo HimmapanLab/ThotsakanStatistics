@@ -204,7 +204,7 @@ export default function CommonDistControls({
             handles={query.kind === 'one-sided' ? [{ label: 'x', value: query.k }]
               : [{ label: 'x₁', value: query.lower }, { label: 'x₂', value: query.upper }]} />
         </div>
-        {messages.filter(Boolean).map((message) => <p key={message} role="alert" className="mt-2 text-xs text-red-400">{message}</p>)}
+        {messages.filter(Boolean).map((message) => <p key={message} role="alert" className="mt-2 text-xs text-[var(--error)]">{message}</p>)}
       </div>
 
       <AnalysisActions onReset={() => {

@@ -30,10 +30,10 @@ export default function DragHandle({
         flex items-center justify-center select-none touch-none
         group transition-colors
         ${isDragging && inSnapZone
-          ? 'bg-red-500/10'
+          ? 'bg-[var(--error-bg)]'
           : isDragging
           ? 'bg-[var(--color-accent)]/10'
-          : 'hover:bg-white/5'}
+          : 'hover:bg-[var(--hover-overlay)]'}
       `}
     >
       {/* Visible line */}
@@ -41,7 +41,7 @@ export default function DragHandle({
         className={`
           w-[2px] h-8 rounded-full transition-colors
           ${isDragging && inSnapZone
-            ? 'bg-red-500'
+            ? 'bg-[var(--error)]'
             : isDragging
             ? 'bg-[var(--color-accent)]'
             : 'bg-[var(--color-border-md)] group-hover:bg-[var(--color-accent)]/50'}

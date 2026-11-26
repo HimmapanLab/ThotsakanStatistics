@@ -1,32 +1,90 @@
 @import "tailwindcss";
+@import "./design/tokens.css";
+@import "./design/lab.css";
 
-/* Smallest text in the app: hints, explanations, notebook rows and tables. The same size as the
-   left-panel labels so every explanation stays readable. */
-@theme {
-  --text-xs: 0.875rem;
-  --text-xs--line-height: 1.5;
+/* The tokens in design/tokens.css become Tailwind utilities (bg-ground, text-ink-muted, border-line, text-q-mean...).
+   `inline` makes a utility point at the token itself, so one change in tokens.css reaches every use. */
+@theme inline {
+  --color-ground: var(--ground);
+  --color-surface: var(--surface);
+  --color-inset: var(--inset);
+  --color-field: var(--field);
+  --color-row-tint: var(--row-tint);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+  --color-brand: var(--accent);
+  --color-brand-hover: var(--accent-hover);
+  --color-action: var(--action);
+  --color-action-ink: var(--action-ink);
+  --color-focus: var(--focus);
+  --color-q-data: var(--q-data);
+  --color-q-data-fill: var(--q-data-fill);
+  --color-q-mean: var(--q-mean);
+  --color-q-median: var(--q-median);
+  --color-q-deviation: var(--q-deviation);
+  --color-q-prediction: var(--q-prediction);
+  --color-q-kde: var(--q-kde);
+  --color-q-normal: var(--q-normal);
+  --color-q-quantile: var(--q-quantile);
+  --color-q-shape: var(--q-shape);
+  --color-h-reject: var(--h-reject);
+  --color-good: var(--good);
+  --color-warn: var(--warn);
+  --color-warn-bg: var(--warn-bg);
+  --color-error: var(--error);
+  --color-error-bg: var(--error-bg);
+  --color-il-pale: var(--il-pale);
+  --color-il-medium: var(--il-medium);
+  --color-il-primary: var(--il-primary);
+  --color-il-ink: var(--il-ink);
+  --color-il-paper: var(--il-paper);
+  --ease-lab: var(--ease);
 }
 
+@theme {
+  --font-sans: "IBM Plex Sans Thai", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  /* The root is 14 px, so the type scale is stated against it: text-sm is 14 px, and nothing is under 12 px. */
+  --text-xs: 0.875rem;
+  --text-xs--line-height: 1.5;
+  --text-sm: 1rem;
+  --text-sm--line-height: 1.5;
+  --text-base: 1.1429rem;
+  --text-base--line-height: 1.5;
+  --text-lg: 1.2857rem;
+  --text-xl: 1.4286rem;
+  --text-2xl: 1.7143rem;
+  --text-3xl: 2.1429rem;
+  /* spacing steps stay 4 px at every text size, as in the prototype (p-4 is 16 px) */
+  --spacing: 4px;
+}
+
+/* The old dark variables now point at the light tokens, so every screen that has not been rebuilt yet is light
+   and readable. New code uses the token names (var(--ink), bg-surface), not these. */
 :root {
-  --color-bg-base:    #0b1020;
-  --color-bg-panel:   #111827;
-  --color-bg-input:   #0f172a;
-  --color-bg:         #0b1020;
-  --color-bg-elevated: #111827;
-  --color-bg-hover:   #1f2937;
-  --color-border:     #1f2937;
-  --color-border-md:  #334155;
-  --color-text:       #e5e7eb;
-  --color-text-muted: #9ca3af;
-  --color-accent:     #6366f1;
-  --color-accent-hover: #4f46e5;
-  --color-warning-bg:     rgba(245,158,11,0.10);
-  --color-warning-border: rgba(245,158,11,0.40);
-  --color-warning-text:   #fde68a;
-  --color-error-bg:       rgba(239,68,68,0.10);
-  --color-error-border:   rgba(239,68,68,0.45);
-  --color-error-text:     #fecaca;
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  --color-bg-base:    var(--ground);
+  --color-bg-panel:   var(--surface);
+  --color-bg-input:   var(--field);
+  --color-bg:         var(--ground);
+  --color-bg-elevated: var(--surface);
+  --color-bg-hover:   var(--row-tint);
+  --color-border:     var(--line);
+  --color-border-md:  var(--line-strong);
+  --color-text:       var(--ink);
+  --color-text-muted: var(--ink-muted);
+  --color-accent:     var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-primary:    var(--action);
+  --color-warning-bg:     var(--warn-bg);
+  --color-warning-border: var(--warn);
+  --color-warning-text:   var(--warn);
+  --color-error-bg:       var(--error-bg);
+  --color-error-border:   var(--error);
+  --color-error-text:     var(--error);
+  font-family: var(--font-ui);
   line-height: 1.5;
 }
 
@@ -38,6 +96,13 @@ html, body, #app {
   background: var(--color-bg-base);
   color: var(--color-text);
 }
+body {
+  font-family: var(--font-ui);
+  font-size: 1rem;
+  -webkit-font-smoothing: antialiased;
+  font-variant-numeric: tabular-nums;
+}
+html { scrollbar-gutter: stable; }
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -68,7 +133,7 @@ html, body, #app {
   text-orientation: mixed;
 }
 
-/* Plotly dark overrides */
+/* Plotly sits on the page background */
 .js-plotly-plot .plotly .main-svg { background: transparent !important; }
 .js-plotly-plot .plotly .bg { fill: transparent !important; }
 
@@ -130,8 +195,8 @@ html, body, #app {
 }
 .lab-bench :is(select, input) { max-width: 100%; min-width: 0; }
 :where(button, input, select, summary, a, [tabindex]):focus-visible {
-  outline: 2px solid #a5b4fc;
-  outline-offset: 3px;
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 button:not(:disabled), summary { cursor: pointer; }
 button:disabled { cursor: not-allowed; }
@@ -157,6 +222,7 @@ button:disabled { cursor: not-allowed; }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
   .sidebar-transition { transition: none; }
   .lab-bench .animate-spin, .lab-bench .animate-pulse { animation: none; }
 }

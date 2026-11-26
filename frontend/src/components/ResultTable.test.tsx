@@ -36,7 +36,7 @@ describe('ResultTable', () => {
     const label = rows[0].firstElementChild as HTMLTableCellElement
     expect(label.textContent).toBe('Shape')
     expect(label.rowSpan).toBe(2)
-    expect(label.className).toContain('text-stone-400')
+    expect(label.className).toContain('text-stone-700')
     expect(rows[1].children).toHaveLength(2)
   })
 
@@ -50,9 +50,9 @@ describe('ResultTable', () => {
     const label = rows[0].firstElementChild as HTMLTableCellElement
     expect(label.textContent).toBe('Confidence')
     expect(label.rowSpan).toBe(2)
-    expect(label.className).not.toMatch(/text-(blue|amber)-400/)
-    expect(rows[0].className).toContain('bg-blue-950/50')
-    expect(rows[1].className).toContain('bg-amber-950/50')
+    expect(label.className).not.toMatch(/text-(blue|amber)-700/)
+    expect(rows[0].className).toContain('bg-blue-50')
+    expect(rows[1].className).toContain('bg-amber-50')
   })
 
   it('rows without a group have no tint and no group column', () => {
@@ -64,9 +64,9 @@ describe('ResultTable', () => {
 })
 
 describe('table tags', () => {
-  it('all tags use the same light-on-tint pattern, so they read the same size', () => {
+  it('all tags use the same token-tint pattern, so they read the same size', () => {
     for (const [tag, style] of Object.entries(TABLE_TAG_STYLES)) {
-      expect(style, tag).toMatch(/^border-\w+-400\/40 bg-\w+-500\/20 text-\w+-300$/)
+      expect(style, tag).toMatch(/^border-\[var\(--q-[\w-]+\)\] bg-\[var\(--[\w-]+\)\] text-\[var\(--[\w-]+\)\]$/)
     }
   })
 })

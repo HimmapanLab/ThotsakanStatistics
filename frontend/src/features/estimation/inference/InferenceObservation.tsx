@@ -68,7 +68,7 @@ const INTERVAL_COLUMNS = [
 const CI_GROUPS = ['Mean', 'Median', 'Deviation'] as const
 
 /** Marks a plot whose x-axis is not the data axis shared by the plots above it. */
-const DIFFERENT_SCALE = <span className="rounded border border-amber-400/40 bg-amber-500/20 px-1.5 py-0.5 text-xs font-semibold text-amber-300">Different scale</span>
+const DIFFERENT_SCALE = <span className="rounded border border-[var(--warn)] bg-[var(--warn-bg)] px-1.5 py-0.5 text-xs font-semibold text-[var(--warn)]">Different scale</span>
 
 /** What a prediction interval is based on, in the left panel's words. */
 function predictionBasis(interval: IntervalRow): string {

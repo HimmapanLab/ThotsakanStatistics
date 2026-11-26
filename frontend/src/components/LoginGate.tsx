@@ -52,7 +52,7 @@ function GoogleButton({ clientId, domain }: { clientId: string; domain: string }
   return (
     <>
       <div ref={slot} className="flex justify-center min-h-10" />
-      {loadError && <p className="text-sm text-red-400 mt-3">{loadError}</p>}
+      {loadError && <p className="text-sm text-[var(--error)] mt-3">{loadError}</p>}
     </>
   )
 }
@@ -67,7 +67,7 @@ export default function LoginGate({ children }: { children: ReactNode }) {
   if (status === 'error') {
     return (
       <Centered>
-        <p className="text-sm text-red-400 max-w-md text-center">
+        <p className="text-sm text-[var(--error)] max-w-md text-center">
           Could not reach the server: {error}
         </p>
       </Centered>
@@ -84,7 +84,7 @@ export default function LoginGate({ children }: { children: ReactNode }) {
           Sign in with your @{config?.allowedDomain} Google account.
         </p>
         {config && <GoogleButton clientId={config.clientId} domain={config.allowedDomain} />}
-        {error && <p role="alert" className="text-sm text-red-400 mt-4">{error}</p>}
+        {error && <p role="alert" className="text-sm text-[var(--error)] mt-4">{error}</p>}
       </div>
     </Centered>
   )

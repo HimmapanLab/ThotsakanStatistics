@@ -47,7 +47,7 @@ export default function LogoBar() {
           </span>
         )}
         {config && !config.enabled && !config.demo && (
-          <span className="px-2 py-1 rounded text-xs font-medium bg-amber-500/20 text-amber-300 border border-amber-500/40"
+          <span className="px-2 py-1 rounded text-xs font-medium bg-[var(--warn-bg)] text-[var(--warn)] border border-[var(--warn)]"
             title="AUTH_DISABLED=true: login is skipped. Never use in production.">
             Auth disabled (dev)
           </span>

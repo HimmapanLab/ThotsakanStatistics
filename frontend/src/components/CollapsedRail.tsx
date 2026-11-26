@@ -25,7 +25,7 @@ export default function CollapsedRail({ side, label, onExpand }: CollapsedRailPr
         onClick={onExpand}
         className="w-7 h-7 flex items-center justify-center rounded
           text-[var(--color-text-muted)] hover:text-[var(--color-text)]
-          hover:bg-white/10 transition-colors cursor-pointer text-xs"
+          hover:bg-[var(--hover-overlay)] transition-colors cursor-pointer text-xs"
         title={`Expand ${label}`}
       >
         {isLeft ? '>' : '<'}

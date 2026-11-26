@@ -369,9 +369,9 @@ describe('Inference student workflow', () => {
     const labels = [...table.querySelectorAll<HTMLTableCellElement>('tbody td[rowspan]')]
     expect(labels.map(cell => [cell.textContent, cell.rowSpan])).toEqual([['Prediction', 1], ['Confidence', 2]])
     expect(rows.map(row => row.querySelector('td:not([rowspan])')!.textContent)).toEqual(['Based on the mean', 'Mean', 'Deviation'])
-    expect(rows[0].className).toContain('bg-rose-950/50')
-    expect(rows[1].className).toContain('bg-blue-950/50')
-    expect(rows[2].className).toContain('bg-amber-950/50')
+    expect(rows[0].className).toContain('bg-rose-50')
+    expect(rows[1].className).toContain('bg-blue-50')
+    expect(rows[2].className).toContain('bg-amber-50')
     expect(rows[1].children[2].textContent).toBe('t (df=4)')
     expect(rows[1].textContent).toContain('29.000')
     expect(rows[1].textContent).toContain('31.000')
