@@ -22,4 +22,5 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
 
 # Single worker on purpose: datasets live in an in-memory session store,
 # so several workers would each hold a different (partial) set of sessions.
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# --no-access-log: main.py logs every request itself, as JSON and without personal data.
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]

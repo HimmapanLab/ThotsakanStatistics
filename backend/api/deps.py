@@ -10,6 +10,12 @@ from sessions.store import get_session
 
 def require_user(request: Request, settings: Settings = Depends(get_settings)) -> User:
     """Gate for every data route: a valid signed session cookie for an allowed domain."""
+    user = _signed_in_user(request, settings)
+    request.state.user = user.email  # for the request log, which keeps only a hash of it
+    return user
+
+
+def _signed_in_user(request: Request, settings: Settings) -> User:
     if settings.demo_mode:
         return User(email="demo@demo.invalid", name="Demo user")
     if settings.auth_disabled:
