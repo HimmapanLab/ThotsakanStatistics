@@ -125,6 +125,7 @@ export default function DataDrawer() {
       {state.status === 'error' && <p className="data-note data-note-error" role="alert">{state.errorMsg}</p>}
       {state.loadError && <p className="data-note data-note-error" role="alert">{state.loadError} {datasetTitle(state.filename)} is still loaded.</p>}
       {state.notice && !hasData && <p className="data-note" role="status">{state.notice}</p>}
+      {hasData && state.dataset?.warning && <p className="data-note" role="status">{state.dataset.warning}</p>}
 
       {hasData ? (
         <DataGrid label={datasetTitle(state.filename)} />
