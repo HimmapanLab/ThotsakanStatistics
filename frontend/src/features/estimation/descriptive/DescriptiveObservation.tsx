@@ -6,7 +6,7 @@ import { useCallback } from 'react'
 import Plot from 'react-plotly.js'
 import { type DescriptiveResult, type StatRow } from '../../../api/descriptive'
 import type { DescriptiveConfig } from './useDescriptiveTabState'
-import { estimatorTags } from './descriptiveOptions'
+import { estimatorTags, missingStats, statsCsv, statsPdfTable, type MissingStat } from './descriptiveOptions'
 import { StatFx } from './descriptiveFormulas'
 import ResultsFrame, { ResultsSection, Warnings } from '../shared/ResultsFrame'
 import ResultsTable, { Legend, type TableRow } from '../shared/ResultsTable'
@@ -38,8 +38,8 @@ function Tags({ tags }: { tags: readonly ('Unbiased' | 'Consistent')[] }) {
   ))}</>
 }
 
-function StatsTable({ rows, showConsistencyCorr, precision, n }: {
-  rows: StatRow[]; showConsistencyCorr: boolean; precision: number; n: number
+function StatsTable({ rows, missing = [], showConsistencyCorr, precision, n }: {
+  rows: StatRow[]; missing?: MissingStat[]; showConsistencyCorr: boolean; precision: number; n: number
 }) {
   const fmt = (v: number | null) => formatNumber(v, precision)
   const columns = [
@@ -74,6 +74,20 @@ function StatsTable({ rows, showConsistencyCorr, precision, n }: {
       },
       fx: row.statId ? <StatFx id={row.statId} corrected={corrected} note={c4} /> : undefined,
     }
+  })
+  // A ticked statistic the backend could not compute keeps its place, with the reason where its value would be.
+  missing.forEach((stat) => {
+    const placeholder: TableRow = {
+      key: `${stat.statId}-missing`,
+      group: stat.category,
+      cells: {
+        measure: stat.measure,
+        value: <span className="est-note" data-missing={stat.statId}>{stat.reason}</span>,
+        corr: null,
+      },
+    }
+    const last = tableRows.map((row) => row.group).lastIndexOf(stat.category)
+    tableRows.splice(last === -1 ? tableRows.length : last + 1, 0, placeholder)
   })
   return <ResultsTable caption={`n = ${n.toLocaleString('en-US')}`} columns={columns} rows={tableRows} />
 }
@@ -224,10 +238,7 @@ export default function DescriptiveObservation({
   const baseName = config ? `descriptive-${config.column}` : 'descriptive-statistics'
   const exportCSV = useCallback(() => {
     if (!result || !config) throw new Error('No applied descriptive result is available.')
-    downloadCSV([
-      ['category', 'statistic', 'value', 'normal_corrected', 'normal_corrected_properties', 'robust', 'warning'],
-      ...visibleRows.map((row) => [row.category, row.measure, row.value, row.consistencyCorr, estimatorTags(row, true).join(' '), !!row.robust, row.warning ?? '']),
-    ], exportFilename(baseName, 'csv', 'descriptive-statistics'))
+    downloadCSV(statsCsv(visibleRows, config.showConsistencyCorr), exportFilename(baseName, 'csv', 'descriptive-statistics'))
   }, [result, config, visibleRows, baseName])
   const exportPNG = useCallback(() => downloadChartsPNG(registry.charts,
     exportFilename(`${baseName}-chart`, 'png', 'descriptive-statistics')), [registry.charts, baseName])
@@ -243,8 +254,7 @@ export default function DescriptiveObservation({
         { label: 'Standard deviation', value: result.summary.std },
         { label: 'IQR', value: result.summary.iqr },
       ],
-      tables: [{ title: 'Statistics', columns: ['Category', 'Statistic', 'Value', 'Normal-corrected'],
-        rows: visibleRows.map((row) => [row.category, row.measure, row.value, row.consistencyCorr]) }],
+      tables: [{ title: 'Statistics', ...statsPdfTable(visibleRows, config.showConsistencyCorr) }],
       filename: exportFilename(`${baseName}-report`, 'pdf', 'descriptive-statistics'),
       precision,
     })
@@ -262,7 +272,7 @@ export default function DescriptiveObservation({
         <>
           <ResultsSection title="Statistics">
             {visibleRows.length > 0
-              ? <StatsTable rows={visibleRows} showConsistencyCorr={config.showConsistencyCorr} precision={precision} n={result.summary.n} />
+              ? <StatsTable rows={visibleRows} missing={missingStats(config.selectedStats, result.rows, config)} showConsistencyCorr={config.showConsistencyCorr} precision={precision} n={result.summary.n} />
               : <p className="est-note">Tick at least one statistic under What to show.</p>}
             <Warnings items={warnings} />
           </ResultsSection>

@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import type { CheckboxNode } from '../../../components/CheckboxTree'
 import { SelectField, TextField } from '../../../components/ControlPrimitives'
 import DualInput from '../../../components/DualInput'
+import { useLastValid } from '../../../hooks/useLastValid'
 import { LABELS, confidenceReadout, estimatorOptions } from '../../../labels'
 import { INTERVAL_TREE, selectionInfo } from './inferenceOptions'
 import type { InferenceState } from './useInferenceTabState'
@@ -45,7 +46,9 @@ export default function InferenceControls({ state }: { state: InferenceState }) 
   const alpha = Number(draft.alphaStr)
   const validAlpha = draft.alphaStr.trim() !== '' && Number.isFinite(alpha) && alpha > 0 && alpha < 1
 
-  const alphaInput = <DualInput label={LABELS.alpha} value={clamp(alpha, ALPHA.min, ALPHA.max, 0.05)} min={ALPHA.min} max={ALPHA.max} step={ALPHA.step} decimals={ALPHA.decimals}
+  // While the typed text is not a number the slider keeps the last good α, and a rejected entry returns to it.
+  const sliderAlpha = useLastValid(validAlpha ? clamp(alpha, ALPHA.min, ALPHA.max, 0.05) : null, 0.05)
+  const alphaInput = <DualInput label={LABELS.alpha} value={sliderAlpha} min={ALPHA.min} max={ALPHA.max} step={ALPHA.step} decimals={ALPHA.decimals}
     onChange={value => setDraft({ alphaStr: value.toFixed(ALPHA.decimals) })}
     textValue={draft.alphaStr} onTextChange={alphaStr => setDraft({ alphaStr })} resetSignal={resetGeneration}
     hint={validAlpha ? `${confidenceReadout(alpha)}${isRegions ? ' for the marginal intervals' : ''}` : 'Enter a value between 0 and 1.'}

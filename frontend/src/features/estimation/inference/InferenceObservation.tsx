@@ -3,7 +3,7 @@ import MathFormula from '../../../components/MathFormula'
 import type { ConfidenceRegionsResponse, IntervalsResponse } from '../../../api/inference'
 import { useMemo } from 'react'
 import type { InferenceState } from './useInferenceTabState'
-import { coveragePercent, formatInferenceNumber, intervalRange, parseIntervalRows, pointEstimate, quantityLabel, rowLabel, type IntervalRow } from './inferencePresentation'
+import { coveragePercent, formatInferenceNumber, intervalRange, parseIntervalRows, pdfStats, pointEstimate, quantityLabel, rowLabel, type IntervalRow } from './inferencePresentation'
 import { HISTOGRAM_MARKER, PLOT_AXIS, PLOT_COLORS, PLOT_CONFIG, baseLayout, regionLineColor } from '../../../plot/theme'
 import ResultsFrame, { ResultsSection, Warnings } from '../shared/ResultsFrame'
 import ResultsTable, { Legend, type LegendItem, type TableRow } from '../shared/ResultsTable'
@@ -283,11 +283,7 @@ export default function InferenceObservation({ state }: { state: InferenceState 
       title: `Statistical Inference - ${variable}`,
       subtitle: state.appliedConfig?.estimationType,
       charts: registry.charts,
-      stats: [
-        { label: 'Variable', value: variable },
-        { label: 'Alpha', value: state.appliedConfig?.alpha },
-        ...(state.partialResult ? [{ label: 'Partial result', value: state.error ?? 'One requested section failed.' }] : []),
-      ],
+      stats: pdfStats(state.appliedConfig, variable, state.partialResult ? state.error ?? 'One requested section failed.' : null),
       tables: intervalRows.length ? [{ title: 'Intervals', columns: ['Type', 'Statistic', 'Method', 'Lower', 'Upper'], rows: intervalRows }] : [],
       filename: exportFilename(`${baseName}-report`, 'pdf', 'inference'),
       precision: state.precision,

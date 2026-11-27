@@ -34,3 +34,16 @@ export function intervalRange(values: (number | null)[]): [number, number] | und
   const padding = (upper - lower) * 0.06 || Math.max(Math.abs(upper), 1) * 0.02
   return [lower - padding, upper + padding]
 }
+
+/** The reports name α only while the page shows it: confidence regions use it only for the marginal-interval box. */
+export const reportsAlpha = (config: { estimationType: string; add_ci_box: boolean } | null) =>
+  !!config && (config.estimationType !== 'Confidence Regions' || config.add_ci_box)
+
+/** The summary values at the top of the PDF report. */
+export function pdfStats(config: { estimationType: string; add_ci_box: boolean; alpha: number } | null, variable: string, partialNote: string | null) {
+  return [
+    { label: 'Variable', value: variable },
+    ...(config && reportsAlpha(config) ? [{ label: 'Alpha', value: config.alpha }] : []),
+    ...(partialNote ? [{ label: 'Partial result', value: partialNote }] : []),
+  ]
+}
