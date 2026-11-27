@@ -17,8 +17,6 @@ def compute_distribution(request: DistributionRequest):
         return compute_distribution_response(request)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
 
 @router.post("/normal-pdf", response_model=NormalPDFResponse)
@@ -27,5 +25,3 @@ def compute_normal_pdf(request: NormalPDFRequest):
         return compute_normal_pdf_response(request)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")

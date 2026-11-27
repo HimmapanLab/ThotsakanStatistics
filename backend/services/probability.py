@@ -9,7 +9,10 @@ from api.schemas.probability import (
 
 
 def compute_distribution_response(req: DistributionRequest) -> DistributionResponse:
-    data = compute_distribution(req.distName, req.params, req.queryOp, req.queryK, req.queryUpper, req.lowerOp, req.upperOp)
+    try:
+        data = compute_distribution(req.distName, req.params, req.queryOp, req.queryK, req.queryUpper, req.lowerOp, req.upperOp)
+    except KeyError as missing:
+        raise ValueError(f"Missing parameter {missing} for the {req.distName} distribution.") from None
     return DistributionResponse(**data)
 
 
