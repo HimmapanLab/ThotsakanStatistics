@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Request
+from fastapi.concurrency import run_in_threadpool
 import uuid
 import pandas as pd
 import io
@@ -27,21 +28,33 @@ def _read_numbers_as_numbers(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+async def _read_capped(file: UploadFile, limit: int) -> bytes:
+    """The upload's bytes, refused as soon as they pass ``limit`` (never more than limit + 1 MB in memory)."""
+    chunks, size = [], 0
+    while chunk := await file.read(MB):
+        size += len(chunk)
+        if size > limit:
+            raise HTTPException(status_code=413, detail=f"The file is larger than {limit // MB} MB.")
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
 @router.post("/upload")
-async def upload_dataset(file: UploadFile = File(...), settings: Settings = Depends(get_settings)):
+async def upload_dataset(request: Request, file: UploadFile = File(...), settings: Settings = Depends(get_settings)):
     if not file.filename.endswith('.csv'):
         raise HTTPException(status_code=400, detail="Only CSV files are supported")
 
-    content = await file.read()
-    if len(content) > settings.max_upload_mb * MB:
+    limit = settings.max_upload_mb * MB
+    declared = request.headers.get("content-length", "")
+    if declared.isdigit() and int(declared) > limit + MB:  # + 1 MB for the multipart wrapping
         raise HTTPException(status_code=413, detail=f"The file is larger than {settings.max_upload_mb} MB.")
+    content = await _read_capped(file, limit)
 
     try:
-        # Parse CSV
-        # We handle parsing using pandas as requested. 
-        # Further schema improvements might be needed for dates, numerical, and categorical parsing.
-        df = _read_numbers_as_numbers(pd.read_csv(io.BytesIO(content)))
-        
+        # pandas holds the GIL for most of a parse; in the threadpool it at least leaves the event
+        # loop free to accept and answer other requests.
+        df = await run_in_threadpool(lambda: _read_numbers_as_numbers(pd.read_csv(io.BytesIO(content))))
+
         # Generate session ID
         session_id = str(uuid.uuid4())
         

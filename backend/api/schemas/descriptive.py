@@ -1,10 +1,10 @@
-from pydantic import BaseModel
-from typing import Dict, List, Optional, Tuple, Literal
+from pydantic import BaseModel, Field
+from typing import Annotated, Dict, List, Optional, Tuple, Literal
 
 class DescriptiveRequest(BaseModel):
     session_id: str
     column: str
-    quantileProbs: List[float] = [0.25, 0.5, 0.75]
+    quantileProbs: List[Annotated[float, Field(ge=0.0, le=1.0)]] = Field([0.25, 0.5, 0.75], max_length=99)
     trimAlpha: Optional[float] = None
     winsorLimits: Optional[Tuple[float, float]] = None
     weightsCol: Optional[str] = None

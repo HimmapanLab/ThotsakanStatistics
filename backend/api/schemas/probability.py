@@ -1,5 +1,5 @@
 from __future__ import annotations
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, Union
 
 
@@ -31,9 +31,9 @@ class DistributionResponse(BaseModel):
 
 class NormalPDFRequest(BaseModel):
     mean: float
-    std: float
-    n: int
-    alpha: float
+    std: float = Field(gt=0.0)
+    n: int = Field(ge=1)
+    alpha: float = Field(gt=0.0, lt=1.0)
 
 
 class NormalPDFResponse(BaseModel):
