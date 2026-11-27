@@ -4,6 +4,7 @@ from typing import Annotated
 
 from config import Settings, get_settings
 from services.auth import SESSION_COOKIE, User, read_session_token
+from services.categories import is_selected
 from sessions.store import get_session
 
 
@@ -35,15 +36,10 @@ async def get_session_data(x_session_id: Annotated[str | None, Header()] = None)
     return data
 
 
-def _as_text(values: pd.Series) -> pd.Series:
-    """Values as the CSV wrote them: a blank cell makes pandas read 1 as 1.0, so drop a trailing ".0"."""
-    return values.astype(str).str.replace(r"\.0$", "", regex=True)
-
-
 def apply_filters(df: pd.DataFrame, filters: dict | None) -> pd.DataFrame:
     """Restrict rows to the Data tab's active categorical filters (the CSV text of each value)."""
     if filters:
         for col, allowed in filters.items():
             if col in df.columns and allowed:
-                df = df[_as_text(df[col]).isin(set(_as_text(pd.Series(allowed, dtype=str))))]
+                df = df[is_selected(df[col], allowed)]
     return df
