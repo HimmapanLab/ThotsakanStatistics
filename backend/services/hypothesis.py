@@ -24,6 +24,7 @@ from api.schemas.hypothesis import (
 from core.hypothesis_testing import one_sample_ttest, two_sample_ttest, variance_test
 from core.hypothesis_testing.rejection_region import compute_rejection_region_data
 from core.hypothesis_testing.tables import anova_table
+from services.categories import is_selected
 
 # The tests are called with plotting off: the frontend draws Plotly from JSON, and
 # the bundled matplotlib helpers read pingouin's pre-0.6 column names anyway.
@@ -60,18 +61,19 @@ def _materialize_group(df: pd.DataFrame, numeric_col: str, spec: Optional[GroupS
     if not values:
         raise ValueError(f"No categories selected for column '{spec.column}'.")
 
-    cat_series = pd.Series(values).astype(df[spec.column].dtype)
-    series = df.loc[df[spec.column].isin(cat_series), numeric_col].dropna()
+    series = df.loc[is_selected(df[spec.column], values), numeric_col].dropna()
     if series.empty:
         raise ValueError("One or more groups are empty after filtering.")
     return series
 
 
-def _require_two_values(series: pd.Series, name: str) -> None:
-    """A sample variance (and so every two-group test here) needs at least two values."""
+def _require_two_values(
+    series: pd.Series, name: str, hint: str = "Choose more categories for it."
+) -> None:
+    """A sample variance (and so every test here that compares groups) needs at least two values."""
     if series.size < 2:
         raise ValueError(
-            f"'{name}' has {series.size} value; each group needs at least 2. Choose more categories for it."
+            f"'{name}' has {series.size} value; each group needs at least 2. {hint}"
         )
 
 
@@ -88,12 +90,13 @@ def _materialize_anova_frame(
     if not selected:
         raise ValueError(f"No categories selected for column '{cat_col}'.")
 
-    cat_series = pd.Series(selected).astype(df[cat_col].dtype)
-    frame = df[df[cat_col].isin(cat_series)][[numeric_col, cat_col]].dropna()
+    frame = df[is_selected(df[cat_col], selected)][[numeric_col, cat_col]].dropna()
     if frame.empty:
         raise ValueError("One or more groups are empty after filtering.")
     if frame[cat_col].nunique() < 2:
         raise ValueError("At least two categories must be selected for ANOVA.")
+    for level, sub in frame.groupby(cat_col, observed=True):
+        _require_two_values(sub[numeric_col], str(level), hint="Leave it out of the ANOVA.")
     return frame
 
 

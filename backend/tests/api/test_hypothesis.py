@@ -132,3 +132,13 @@ def test_no_session_is_not_found():
         headers={"x-session-id": "ghost"},
     )
     assert response.status_code == 404
+
+
+def test_anova_with_a_one_row_level_is_a_client_error(mock_session):
+    from sessions.store import get_session
+
+    df = get_session(mock_session)
+    df.loc[0, "region"] = "Solo"
+    res = _post(mock_session, test_type=ANOVA, anova_column="region", anova_levels=["Solo", "East", "South"])
+    assert res.status_code == 400
+    assert "'Solo' has 1 value" in res.json()["detail"]
