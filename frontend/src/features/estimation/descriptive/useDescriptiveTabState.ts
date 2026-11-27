@@ -99,6 +99,11 @@ function withSelection(draft: DescriptiveDraft, next: string[]): DescriptiveDraf
   return updated
 }
 
+/** A weights column counts only while it is a numeric column of this dataset other than the variable. */
+export function weightsColumnUsable(draft: Pick<DescriptiveDraft, 'column' | 'weightsCol'>, numericCols: readonly string[]): boolean {
+  return !draft.weightsCol || (numericCols.includes(draft.weightsCol) && draft.weightsCol !== draft.column)
+}
+
 interface AppliedDescriptive {
   result: DescriptiveResult
   config: DescriptiveConfig
@@ -213,18 +218,27 @@ export function useDescriptiveTabState() {
     if (draft.column && !dataState.numericCols.includes(draft.column)) updateDraft(previous => ({ ...previous, column: '' }))
   }, [dataState.numericCols, draft.column])
 
+  // The same for the weights column, which must also differ from the variable (a column cannot weigh itself).
+  const weightsOk = weightsColumnUsable(draft, dataState.numericCols)
+  useEffect(() => {
+    if (!weightsOk) updateDraft(previous => ({ ...previous, weightsCol: '' }))
+  }, [weightsOk])
+
   // Results update automatically; submit decides whether the backend is needed.
   useEffect(() => {
     // A variable left over from the previous dataset is not sent (the effect above clears it).
     if (!hasData || Object.keys(fieldErrors).length > 0 || !dataState.numericCols.includes(draft.column)) return
-    submit(configFromDraft(draft))
-  }, [draft, fieldErrors, hasData, dataState.numericCols, submit, attempt])
+    // A weights column that is gone, no longer numeric or the variable itself is not sent (the effect above clears it).
+    submit(configFromDraft(weightsOk ? draft : { ...draft, weightsCol: '' }))
+  }, [draft, fieldErrors, hasData, dataState.numericCols, weightsOk, submit, attempt])
 
   const setDraft = useCallback((patch: Partial<DescriptiveDraft>) => {
     updateDraft(previous => {
       const base = patch.selected ? withSelection(previous, patch.selected) : previous
       const { selected: _selected, ...rest } = patch
-      return { ...base, ...rest }
+      const next = { ...base, ...rest }
+      // Choosing the weights column as the variable would make it weigh itself: the weights are cleared.
+      return next.weightsCol && next.weightsCol === next.column ? { ...next, weightsCol: '' } : next
     })
   }, [])
 
