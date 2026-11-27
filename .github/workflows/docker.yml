@@ -98,7 +98,7 @@ jobs:
           code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' --data-binary @big.json http://localhost:8080/api/descriptive/compute)
           [ "$code" = "413" ] || { echo "expected 413 for a 2 MB JSON body, got $code"; exit 1; }
           # ... while an upload well over 1 MB still gets through (its location keeps CLIENT_MAX_BODY_SIZE).
-          { echo 'x,y'; for i in $(seq 1 150000); do echo "$i,$((i % 97))"; done; } > big.csv
+          { echo 'x,y'; for i in $(seq 1 250000); do echo "$i,$((i % 97))"; done; } > big.csv
           size=$(wc -c < big.csv); [ "$size" -gt 1500000 ] || { echo "big.csv is only $size bytes"; exit 1; }
           code=$(curl -s -o upload.json -w '%{http_code}' -F 'file=@big.csv;type=text/csv' http://localhost:8080/api/data/upload)
           [ "$code" = "200" ] || { echo "expected 200 for a $size-byte upload, got $code"; cat upload.json; exit 1; }
