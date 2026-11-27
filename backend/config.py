@@ -1,5 +1,6 @@
 """Environment-driven settings. Everything here comes from the root `.env`
 (docker compose forwards it) or the process environment."""
+import logging
 import os
 from dataclasses import dataclass
 from functools import lru_cache
@@ -77,4 +78,10 @@ def validate_settings(s: Settings) -> None:
         raise RuntimeError(
             "Authentication is misconfigured: " + "; ".join(problems)
             + ". See .env.example (or set AUTH_DISABLED=true for local development)."
+        )
+    if not s.cookie_secure:
+        # Not an error: local runs over http://localhost need it off. Anywhere else it must be on.
+        logging.getLogger("thotsakan").warning(
+            "AUTH_COOKIE_SECURE is false, so the sign-in cookie may travel over plain HTTP. "
+            "Set AUTH_COOKIE_SECURE=true wherever the app is served over HTTPS (docs/AUTH.md)."
         )

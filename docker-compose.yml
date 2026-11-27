@@ -14,7 +14,7 @@ services:
       AUTH_ALLOWED_DOMAIN: ${AUTH_ALLOWED_DOMAIN:-cmkl.ac.th}
       AUTH_SECRET_KEY: ${AUTH_SECRET_KEY:-}
       AUTH_SESSION_HOURS: ${AUTH_SESSION_HOURS:-12}
-      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-true}  # .env.example sets false for local runs
       AUTH_DISABLED: ${AUTH_DISABLED:-false}
       DEMO_MODE: ${DEMO_MODE:-false}
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-}

@@ -82,6 +82,21 @@ jobs:
         run: |
           curl -fsS http://localhost:8080/ >/dev/null
           curl -fsS http://localhost:8080/api/health
+      - name: Check the security headers (also on /assets/, where nginx drops inherited headers)
+        run: |
+          asset=$(curl -fsS http://localhost:8080/ | grep -o '/assets/[^"]*\.js' | head -1)
+          for url in http://localhost:8080/ "http://localhost:8080$asset"; do
+            headers=$(curl -fsSI "$url")
+            for name in Content-Security-Policy-Report-Only X-Frame-Options X-Content-Type-Options Referrer-Policy Permissions-Policy; do
+              echo "$headers" | grep -qi "^$name:" || { echo "$url is missing $name"; exit 1; }
+            done
+          done
+          echo "security headers present"
+      - name: Check that only uploads accept a large body
+        run: |
+          printf '%2000000s' '' > big.json  # 2 MB; nginx refuses by size
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' --data-binary @big.json http://localhost:8080/api/descriptive/compute)
+          [ "$code" = "413" ] || { echo "expected 413 for a 2 MB JSON body, got $code"; exit 1; }
       - name: Show logs on failure
         if: failure()
         run: docker compose logs
