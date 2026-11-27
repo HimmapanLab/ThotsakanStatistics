@@ -82,3 +82,10 @@ def test_an_unexpected_error_logs_where_but_not_its_message(log, monkeypatch):
 def test_users_are_told_apart_by_a_hash_not_their_email():
     tag = user_tag("alice@cmkl.ac.th")
     assert tag and "alice" not in tag and tag == user_tag("alice@cmkl.ac.th") != user_tag("bob@cmkl.ac.th")
+
+
+def test_the_tag_cannot_be_found_by_hashing_a_roster():
+    import hashlib
+
+    email = "alice@cmkl.ac.th"
+    assert user_tag(email) != hashlib.sha256(email.encode()).hexdigest()[:12]

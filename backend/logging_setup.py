@@ -2,7 +2,7 @@
 
 One JSON line per request: method, path, status, duration, a request id (also sent back in the
 X-Request-ID header, so a student's error message can be matched to its log line) and a short
-hash of the signed-in user's email. Never request or response bodies, file names, column names,
+keyed hash (HMAC) of the signed-in user's email. Never request or response bodies, file names, column names,
 values or emails.
 
 An unexpected error is logged with its exception type and where in the code it happened, but not
@@ -10,6 +10,7 @@ its message: exception messages can quote cell values (pandas: "could not conver
 """
 
 import hashlib
+import hmac
 import json
 import logging
 import os
@@ -17,6 +18,7 @@ import re
 import sys
 import time
 import traceback
+import secrets
 import uuid
 
 from fastapi import Request
@@ -48,9 +50,14 @@ def setup_logging(level: str = "INFO") -> None:
     logger.propagate = False
 
 
+# The tag is keyed, so a class roster cannot be hashed to find who sent a request. The key is the
+# server's AUTH_SECRET_KEY (stable across restarts) or, without one (local runs), random per process.
+_TAG_KEY = (os.getenv("AUTH_SECRET_KEY") or secrets.token_hex(32)).encode()
+
+
 def user_tag(email: str | None) -> str | None:
     """Tells one user's requests apart without naming them."""
-    return hashlib.sha256(email.encode()).hexdigest()[:12] if email else None
+    return hmac.new(_TAG_KEY, email.encode(), hashlib.sha256).hexdigest()[:12] if email else None
 
 
 def _code_location(error: BaseException) -> list[str]:
