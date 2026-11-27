@@ -134,6 +134,20 @@ Linear regression is the only feature left to migrate. Discuss the design first;
   - Never assert statistical values; that belongs in the backend.
 - **Bug fixes** come with a test that fails without the fix.
 
+## Backend dependencies
+
+`requirements.txt` lists what the backend needs and the oldest versions it accepts. What actually gets installed is the hash-checked lock: `requirements.lock` in the image, `requirements-dev.lock` (the same versions plus pytest and httpx) in CI and the dev container. So a rebuild never changes a library version, and so never changes a number, by accident.
+
+To upgrade, in its own pull request:
+
+```bash
+cd backend
+uv pip compile requirements.txt --universal --python-version 3.12 --generate-hashes --no-header --no-annotate -o requirements.lock --upgrade
+uv pip compile requirements.txt requirements-dev.txt -c requirements.lock --universal --python-version 3.12 --generate-hashes --no-header --no-annotate -o requirements-dev.lock
+```
+
+Use `--upgrade-package scipy` instead of `--upgrade` to move one library. The full test suite must pass on the new lock, and the pull request lists the versions that changed, so Irving can see which numbers could move.
+
 ## Commits and pull requests
 
 Use Conventional Commits (`feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`) with a short, lowercase, imperative subject. Explain *why* in the body when it isn't obvious:
