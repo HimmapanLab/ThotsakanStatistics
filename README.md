@@ -44,7 +44,7 @@ Sign-in setup is described in [`docs/AUTH.md`](docs/AUTH.md). Without that confi
 ```bash
 (cd frontend && npm install)
 (cd backend && python -m venv .venv && source .venv/bin/activate \
-   && pip install -r requirements.txt -r requirements-dev.txt)
+   && pip install --require-hashes -r requirements-dev.lock)
 npm install && npm run dev     # frontend http://localhost:5173, backend :8000
 ```
 

@@ -29,7 +29,7 @@ npm run build        # tsc type check + production build
 npm run test         # Vitest once (test:ui for the UI)
 
 # Backend (backend/)
-pip install -r requirements.txt -r requirements-dev.txt
+pip install --require-hashes -r requirements-dev.lock   # the exact versions the image runs
 uvicorn main:app --reload    # :8000
 pytest                       # testpaths = tests
 

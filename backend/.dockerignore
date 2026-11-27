@@ -1,6 +1,8 @@
 __pycache__/
 *.py[cod]
 .venv/
+.venv-*/
+requirements-dev.lock
 venv/
 .pytest_cache/
 tests/

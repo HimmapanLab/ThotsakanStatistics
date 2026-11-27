@@ -21,8 +21,9 @@ jobs:
         with:
           python-version: "3.12"  # as in backend/Dockerfile
           cache: pip
-          cache-dependency-path: backend/requirements*.txt
-      - run: pip install -r requirements.txt -r requirements-dev.txt
+          cache-dependency-path: backend/requirements*.lock
+      # The exact, hash-checked versions the image runs (requirements.lock plus pytest and httpx).
+      - run: pip install --require-hashes -r requirements-dev.lock
       - name: pytest
         # No Google credentials in CI; tests/conftest.py signs tests in and test_auth.py covers the gate.
         env:

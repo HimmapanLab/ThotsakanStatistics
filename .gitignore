@@ -32,6 +32,7 @@ MANIFEST
 !.env.example
 !.env.demo.example
 .venv
+.venv-*/
 venv/
 venv.bak/
 ENV/
