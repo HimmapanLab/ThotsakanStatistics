@@ -163,6 +163,6 @@ Tab state hooks are created in `App.tsx`, so each tab keeps its state when you s
 
 - **Backend:** `pytest` in `backend/` (needs `requirements-dev.txt`). API tests run as a signed-in user via `tests/conftest.py`; `tests/api/` covers auth, upload, filters, descriptive, inference, graphical and hypothesis, and `tests/services/test_probability_query.py` the probability route.
 - **Frontend:** `npm run test` (Vitest, tests next to the code) and `npm run build` (type check + build).
-- **CI:** `.github/workflows/tests.yml` runs `pytest` and the frontend tests + build on every pull request into `dev` or `main` (and on pushes to `dev`). `.github/workflows/docker.yml` builds both images and pushes them to GHCR: `:dev` from `dev`, `:main` and `:latest` from `main`, `:1.0.0`-style tags from release tags; it also smoke-tests the compose stack with `AUTH_DISABLED=true`.
+- **CI:** `.github/workflows/tests.yml` runs `pytest` and the frontend tests + build on every pull request, whatever its base (and on pushes to `dev`). `.github/workflows/docker.yml` builds both images and pushes them to GHCR: `:dev` from `dev`, `:main` and `:latest` from `main`, `:1.0.0`-style tags from release tags; it also smoke-tests the compose stack with `AUTH_DISABLED=true`.
 - **Releases:** `dev` → `main` by a pull request Irving approves; then tag `main` `vX.Y.Z` (the version in `frontend/package.json`). The server runs the `:main` images.
 - No linter or formatter is configured.
