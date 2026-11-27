@@ -309,3 +309,43 @@ def test_an_undefined_statistic_is_an_error_not_null():
                      group1=_group("region", ["North"], "North"), group2=_group("region", ["South"], "South"))
     with pytest.raises(ValueError, match="cannot be computed"):
         run_hypothesis_test(data, params)
+
+
+# ── categories are matched as the CSV wrote them (H8, H9) ─────────────────────
+
+def test_a_bool_category_splits_into_its_two_groups():
+    """Regression: the text 'False' cast to bool is True, so both groups were the True rows (t = 0, p = 1)."""
+    from scipy.stats import ttest_ind
+
+    data = DATA.assign(holiday=[True] * 30 + [False] * (len(DATA) - 30))
+    params = _two_sample(correction=False,
+                         group1=_group("holiday", ["False"], "False"), group2=_group("holiday", ["True"], "True"))
+    res = run_hypothesis_test(data, params)
+
+    false_rows, true_rows = data.loc[~data["holiday"], "score"], data.loc[data["holiday"], "score"]
+    assert [g["n"] for g in res["group_summary"]] == [len(false_rows), len(true_rows)]
+    assert res["warnings"] == []
+    assert res["statistic"] == pytest.approx(ttest_ind(false_rows, true_rows).statistic, rel=1e-12)
+
+
+def test_a_bool_category_splits_into_anova_levels():
+    data = DATA.assign(holiday=[True] * 30 + [False] * (len(DATA) - 30))
+    res = run_hypothesis_test(data, _params(test_type=ANOVA, mu0=None, anova_column="holiday",
+                                            anova_levels=["False", "True"]))
+    assert sorted(g["n"] for g in res["group_summary"]) == [30, len(DATA) - 30]
+
+
+def test_a_numeric_category_matches_its_csv_text():
+    """A blank cell makes pandas read the codes 1, 2 as 1.0, 2.0; the UI still sends '1' and '2'."""
+    data = DATA.assign(code=[1.0] * 50 + [2.0] * (len(DATA) - 51) + [None])
+    params = _two_sample(group1=_group("code", ["1"], "1"), group2=_group("code", ["2"], "2"))
+    res = run_hypothesis_test(data, params)
+    assert [g["n"] for g in res["group_summary"]] == [50, len(DATA) - 51]
+
+
+def test_anova_names_a_level_with_one_value():
+    """Regression: a one-row level reached pingouin and came back as a 500 error."""
+    data = DATA.assign(region=["Solo"] + list(DATA["region"][1:]))
+    params = _params(test_type=ANOVA, mu0=None, anova_column="region", anova_levels=["Solo", "East", "South"])
+    with pytest.raises(ValueError, match="'Solo' has 1 value"):
+        run_hypothesis_test(data, params)
