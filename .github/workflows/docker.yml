@@ -82,6 +82,27 @@ jobs:
         run: |
           curl -fsS http://localhost:8080/ >/dev/null
           curl -fsS http://localhost:8080/api/health
+      - name: Check the security headers (also on /assets/, where nginx drops inherited headers)
+        run: |
+          asset=$(curl -fsS http://localhost:8080/ | grep -o '/assets/[^"]*\.js' | head -1)
+          for url in http://localhost:8080/ "http://localhost:8080$asset"; do
+            headers=$(curl -fsSI "$url")
+            for name in Content-Security-Policy-Report-Only X-Frame-Options X-Content-Type-Options Referrer-Policy Permissions-Policy; do
+              echo "$headers" | grep -qi "^$name:" || { echo "$url is missing $name"; exit 1; }
+            done
+          done
+          echo "security headers present"
+      - name: Check that only uploads accept a large body, and that they do
+        run: |
+          printf '%2000000s' '' > big.json  # 2 MB; nginx refuses by size
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' --data-binary @big.json http://localhost:8080/api/descriptive/compute)
+          [ "$code" = "413" ] || { echo "expected 413 for a 2 MB JSON body, got $code"; exit 1; }
+          # ... while an upload well over 1 MB still gets through (its location keeps CLIENT_MAX_BODY_SIZE).
+          { echo 'x,y'; for i in $(seq 1 250000); do echo "$i,$((i % 97))"; done; } > big.csv
+          size=$(wc -c < big.csv); [ "$size" -gt 1500000 ] || { echo "big.csv is only $size bytes"; exit 1; }
+          code=$(curl -s -o upload.json -w '%{http_code}' -F 'file=@big.csv;type=text/csv' http://localhost:8080/api/data/upload)
+          [ "$code" = "200" ] || { echo "expected 200 for a $size-byte upload, got $code"; cat upload.json; exit 1; }
+          echo "1 MB JSON limit and $size-byte upload both behave"
       - name: Show logs on failure
         if: failure()
         run: docker compose logs

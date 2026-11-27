@@ -7,13 +7,26 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
-    # CSV uploads go through /api/data/upload (CLIENT_MAX_BODY_SIZE, default 100m)
-    client_max_body_size ${CLIENT_MAX_BODY_SIZE};
+    # Analysis requests are small JSON; only /api/data/upload takes a file (CLIENT_MAX_BODY_SIZE, default 100m).
+    client_max_body_size 1m;
+
+    # Security headers. add_header in a location replaces these, so /assets/ repeats them.
+    # The CSP allows only this site, Google sign-in and Google Fonts; inline styles are for KaTeX and
+    # Plotly. It is report-only until a browser session (sign-in, every page, export) shows no
+    # violations in the console; then rename the header to Content-Security-Policy.
+    # HSTS belongs where TLS ends (the server's HTTPS proxy), not on this port-80 server.
+    set $csp "default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com/gsi/style; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://accounts.google.com/gsi/; frame-src https://accounts.google.com/gsi/; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
+    add_header Content-Security-Policy-Report-Only $csp always;
+    add_header X-Frame-Options DENY always;
+    add_header X-Content-Type-Options nosniff always;
+    add_header Referrer-Policy strict-origin-when-cross-origin always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()" always;
 
     gzip on;
     gzip_types text/css application/javascript application/json image/svg+xml;
 
     location = /api/data/upload {
+        client_max_body_size ${CLIENT_MAX_BODY_SIZE};
         limit_req zone=uploads burst=60 nodelay;
         limit_req_status 429;
         proxy_pass ${BACKEND_URL};
@@ -36,6 +49,11 @@ server {
     location /assets/ {
         expires 1y;
         add_header Cache-Control "public, immutable";
+        add_header Content-Security-Policy-Report-Only $csp always;
+        add_header X-Frame-Options DENY always;
+        add_header X-Content-Type-Options nosniff always;
+        add_header Referrer-Policy strict-origin-when-cross-origin always;
+        add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()" always;
         try_files $uri =404;
     }
 
