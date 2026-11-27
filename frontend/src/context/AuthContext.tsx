@@ -11,6 +11,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { clearSavedData } from '../lib/sessionStore'
 
 export interface AuthUser {
   email: string
@@ -48,6 +49,23 @@ async function errorDetail(res: Response): Promise<string> {
   return `Request failed (status ${res.status})`
 }
 
+/** Who the data saved in this browser belongs to, so a different person signing in does not inherit it. */
+export const LAST_USER_KEY = 'thotsakan-last-user'
+
+/** Call when `email` is signed in: if the saved data belongs to someone else, it is forgotten first. */
+function claimSavedData(email: string): void {
+  try {
+    const last = localStorage.getItem(LAST_USER_KEY)
+    if (last !== null && last !== email) clearSavedData()
+    localStorage.setItem(LAST_USER_KEY, email)
+  } catch { /* no storage: nothing was kept either */ }
+}
+
+function releaseSavedData(): void {
+  clearSavedData()
+  try { localStorage.removeItem(LAST_USER_KEY) } catch { /* nothing kept */ }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<Status>('loading')
   const [user, setUser] = useState<AuthUser | null>(null)
@@ -67,7 +85,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const meRes = await fetch('/api/auth/me')
         if (cancelled) return
         if (meRes.ok) {
-          setUser(await meRes.json())
+          const me: AuthUser = await meRes.json()
+          if (cancelled) return
+          claimSavedData(me.email)
+          setUser(me)
           setStatus('signedIn')
         } else {
           setStatus('signedOut')
@@ -110,13 +131,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setError(await errorDetail(res))
       return
     }
-    setUser(await res.json())
+    const signedIn: AuthUser = await res.json()
+    claimSavedData(signedIn.email)
+    setUser(signedIn)
     setStatus('signedIn')
   }, [])
 
   const signOut = useCallback(async () => {
     await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {})
     window.google?.accounts.id.disableAutoSelect()
+    // The next person on this PC must not find this one's data (DataProvider unmounts with the login gate).
+    releaseSavedData()
     setUser(null)
     setError('')
     setStatus('signedOut')

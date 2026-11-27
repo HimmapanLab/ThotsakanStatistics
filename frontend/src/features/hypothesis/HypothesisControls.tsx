@@ -7,12 +7,13 @@ import { LABELS, confidenceReadout } from '../../labels'
 import { useDrawer } from '../../context/DrawerContext'
 import { useData } from '../../context/DataContext'
 import { haptic } from '../../lib/haptics'
+import { useLastValid } from '../../hooks/useLastValid'
 import { variableOptions } from '../../utils/columnTypes'
 import GroupBuilder from './GroupBuilder'
 import { testFit } from './testFit'
 import { HYP_FORMULA_NOTE } from './ui/formulaNotes'
 import { useJustOpened } from './ui/blocks'
-import type { HypothesisTabState } from './useHypothesisTabState'
+import { NO_GROUP_COLUMNS, type HypothesisTabState } from './useHypothesisTabState'
 
 const alternatives: { value: Alternative; label: string }[] = [
   { value: 'two-sided', label: 'Different from (≠)' },
@@ -37,7 +38,7 @@ export default function HypothesisControls({ state }: { state: HypothesisTabStat
   const overlapping = needsGroups && draft.group1.column === draft.group2.column &&
     draft.group1.values.some(value => draft.group2.values.includes(value))
   const alpha = Number(draft.alphaStr)
-  const sliderAlpha = !errors.alphaStr && Number.isFinite(alpha) ? alpha : 0.05
+  const sliderAlpha = useLastValid(!errors.alphaStr && Number.isFinite(alpha) ? alpha : null, 0.05)
   const [resetGeneration, setResetGeneration] = useState(0)
   const empty = state.numericCols.length === 0
   const noGroupColumns = state.categoricalCols.length === 0
@@ -105,7 +106,7 @@ export default function HypothesisControls({ state }: { state: HypothesisTabStat
               onChange={varianceTestType => setDraft({ varianceTestType })} options={['Levene', 'Bartlett']} />}
 
             {needsCategories && noGroupColumns ? <p className="hp-note">
-              Mark a grouping column as categorical in Data → Column Types.
+              {NO_GROUP_COLUMNS}
             </p> : <>
               {needsGroups && <>
                 <GroupBuilder label="Group 1" value={draft.group1} onChange={group1 => setDraft({ group1 })} categoricalCols={state.categoricalCols} sampleCount={state.groupCounts[0]} describedBy={errors.groups ? `${id}-groups` : undefined} />

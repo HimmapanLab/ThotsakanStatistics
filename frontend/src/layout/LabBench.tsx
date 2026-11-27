@@ -43,7 +43,9 @@ export default function LabBench({ route, controls, observation }: LabBenchProps
     measure()
     const observer = new ResizeObserver(measure)
     observer.observe(bench)
-    return () => observer.disconnect()
+    // A new text size changes the root font size (the results' least width, the rail) without resizing the bench.
+    window.addEventListener('resize', measure)
+    return () => { observer.disconnect(); window.removeEventListener('resize', measure) }
   }, [])
   const kind: PanelKind = open ? 'drawer' : 'inputs'
   const width = room.width ? clampWidth(kind, widths[kind], room.width, room.resultsMin) : widths[kind]

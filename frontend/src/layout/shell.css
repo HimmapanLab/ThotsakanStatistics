@@ -63,7 +63,8 @@
 .tb-user { display: inline-flex; align-items: center; gap: 8px; flex: none; font-size: 0.9286rem; color: var(--ink-muted); white-space: nowrap; }
 /* The bar steps down one level at a time while its content is wider than the bar (measured in Header.tsx, so it
    follows the text size and the loaded fonts): 1 labels become icons, 2 the dev badge shortens to "Dev", 3 the
-   brand name hides, 4 the topic links fold into one Topics menu, 5 the watermark's gutter is given back. */
+   brand name hides, 4 the topic links fold into one Topics menu, 5 the watermark's gutter is given back, 6 the
+   Topics button loses its name. */
 .tb.tb-c-icons .tb-btn .lbl, .tb.tb-c-brand .tb-brand-name {
   position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
 }
@@ -74,8 +75,14 @@
 .tb.tb-c-icons .tb-user .who { display: none; }
 .tb.tb-c-topics .tb-topics { display: none; }
 .tb.tb-c-topics .tb-topics-btn { display: inline-flex; }
-/* 4 on a phone the controls may run over the watermark's gutter (it is only a faint picture) */
+/* 5 on a phone the controls may run over the watermark's gutter (it is only a faint picture) */
 .tb.has-wm.tb-c-gutter { padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+/* 6 the Topics button keeps only its arrow (its name stays for screen readers) and the bar tightens, for the
+   largest text on a narrow phone */
+.tb.tb-c-name { gap: 8px; }
+.tb.tb-c-name .tb-topics-name {
+  position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}
 
 /* ── Topic menu and Topics popover ─────────────────────── */
 .tm-pop {

@@ -36,6 +36,9 @@ export function applyTextSize(size: TextSize): void {
 export function setTextSize(size: TextSize): void {
   applyTextSize(size)
   try { localStorage.setItem(TEXT_KEY, size) } catch { /* kept for this visit only */ }
+  // The root font size changes what fits, but no element resizes by itself (the bar and the bench measure
+  // themselves on a window resize), so say so.
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event('resize'))
 }
 
 // The saved size is on the page before the first paint.

@@ -13,13 +13,13 @@ import './hp.css'
  * The results column: at most 960 px wide. While the next result loads (`updating`) the last one stays on
  * screen, dimmed, under a quiet line that says so, and a screen reader hears the same.
  */
-export function Out({ updating = false, children }: { updating?: boolean; children: ReactNode }) {
+export function Out({ updating = false, notice, children }: { updating?: boolean; notice?: string; children: ReactNode }) {
   const online = useOnline()
   return (
-    <div className={`hp-out${updating ? ' is-updating' : ''}`} aria-busy={updating}>
+    <div className={`hp-out${updating || notice ? ' is-updating' : ''}`} aria-busy={updating}>
       {updating && !online
         ? <StatusBanner isComputing={false} error={null} hasResult waiting />
-        : <p className="hp-updating" role="status" aria-live="polite">{updating ? 'Updating…' : ''}</p>}
+        : <p className="hp-updating" role="status" aria-live="polite">{updating ? 'Updating…' : notice ?? ''}</p>}
       <div className="hp-out-body">{children}</div>
     </div>
   )

@@ -248,3 +248,36 @@ describe('descriptive status', () => {
     expect(container.querySelector('.lab-output-sub')?.textContent).toContain('sample.csv · n = 1')
   })
 })
+
+describe('descriptive weights column', () => {
+  const pickWeights = async () => {
+    vi.mocked(computeDescriptiveStats).mockResolvedValue(result(1))
+    mount()
+    act(() => hook.setDraft({ selected: [...hook.draft.selected, 'weighted_mean'] }))
+    act(() => hook.setDraft({ weightsCol: 'b' }))
+    await settle()
+    expect(lastRequest().weightsCol).toBe('b')
+  }
+
+  it('clears the weights column when it is chosen as the variable, and never sends it as its own weights', async () => {
+    await pickWeights()
+    act(() => hook.setDraft({ column: 'b' }))
+    expect(hook.draft.weightsCol).toBe('')
+    await settle()
+    expect(lastRequest()).toMatchObject({ column: 'b', weightsCol: null })
+  })
+
+  it('clears the weights column when it stops being numeric or leaves the dataset', async () => {
+    await pickWeights()
+    const before = data.state.numericCols
+    Object.assign(data.state, { numericCols: ['a'] })
+    try {
+      act(() => root.render(<Harness />))
+      expect(hook.draft.weightsCol).toBe('')
+      await settle()
+      expect(lastRequest()).toMatchObject({ column: 'a', weightsCol: null })
+    } finally {
+      Object.assign(data.state, { numericCols: before })
+    }
+  })
+})

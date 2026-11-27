@@ -38,21 +38,38 @@ export function datasetTitle(filename: string): string {
   return EXAMPLE_DATASETS.find((dataset) => dataset.file === filename)?.title ?? filename
 }
 
-/** Fetch an example from /datasets and load it exactly like an uploaded file. Resolves true once it is loaded. */
+/** The example picked last, across every list on the page, and the download it started. */
+let latestPick = 0
+let pickDownload: AbortController | null = null
+
+/**
+ * Fetch an example from /datasets and load it exactly like an uploaded file. Resolves true once it is loaded.
+ * The last example picked wins: a small file that downloads quickly must not replace a later pick, so an
+ * earlier pick's download is cancelled and its file is never handed to loadFile.
+ */
 export function useLoadExample() {
   const { loadFile } = useData()
   const [error, setError] = useState<string | null>(null)
 
   async function load(dataset: Example): Promise<boolean> {
     setError(null)
+    const pick = ++latestPick
+    pickDownload?.abort()
+    const download = new AbortController()
+    pickDownload = download
     try {
-      const response = await fetch(`${import.meta.env.BASE_URL}datasets/${dataset.file}`)
+      const response = await fetch(`${import.meta.env.BASE_URL}datasets/${dataset.file}`, { signal: download.signal })
       if (!response.ok) throw new Error(`status ${response.status}`)
-      const file = new File([await response.text()], dataset.file, { type: 'text/csv' })
+      const text = await response.text()
+      if (pick !== latestPick) return false
+      const file = new File([text], dataset.file, { type: 'text/csv' })
       return (await loadFile(file, { exampleKey: dataset.file })) !== false
     } catch (cause) {
+      if (pick !== latestPick) return false
       setError(`Couldn’t load ${dataset.title} (${cause instanceof Error ? cause.message : String(cause)}).`)
       return false
+    } finally {
+      if (pickDownload === download) pickDownload = null
     }
   }
   return { load, error }
@@ -67,12 +84,15 @@ export function ExampleList({ current, onLoaded, children }: {
   children?: React.ReactNode
 }) {
   const { load, error } = useLoadExample()
+  const { state } = useData()
+  // One load at a time: the examples wait while a file is being read and sent.
+  const loading = state.status === 'loading'
   return (
     <>
       <ul className="data-examples">
         {EXAMPLE_DATASETS.map((dataset) => (
           <li key={dataset.file}>
-            <button type="button" className="data-example" aria-pressed={current === dataset.file}
+            <button type="button" className="data-example" aria-pressed={current === dataset.file} disabled={loading}
               onClick={async () => { if (await load(dataset)) onLoaded?.(dataset) }}>
               <span className="data-example-name">
                 {dataset.title}

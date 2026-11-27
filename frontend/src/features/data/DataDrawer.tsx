@@ -26,6 +26,8 @@ export default function DataDrawer() {
   const filterColumns = useFilterColumns()
 
   const hasData = state.dataset != null
+  // One load at a time: the upload controls wait while a file is being read and sent.
+  const loading = state.status === 'loading'
   const showExamples = examples ?? !hasData
   const filtered = Object.values(state.filters).some((values) => values.length > 0)
 
@@ -60,7 +62,7 @@ export default function DataDrawer() {
 
       <div className="data-tools">
         <button type="button" className="lab-btn" aria-expanded={showExamples} onClick={() => setExamples(!showExamples)}>Example data</button>
-        <button type="button" className="lab-btn" onClick={() => { setUpload(true); fileRef.current?.click() }}>
+        <button type="button" className="lab-btn" disabled={loading} onClick={() => { setUpload(true); fileRef.current?.click() }}>
           <UploadIcon />Upload CSV
         </button>
         {hasData && (
@@ -110,18 +112,20 @@ export default function DataDrawer() {
               event.preventDefault()
               setDragging(false)
               const file = event.dataTransfer.files[0]
-              if (file) void handleFile(file)
+              if (file && !loading) void handleFile(file)
             }}
           >
             Drop a CSV here or{' '}
-            <button type="button" className="lab-btn-quiet" onClick={() => fileRef.current?.click()}>choose a file</button>. CSV only.
+            <button type="button" className="lab-btn-quiet" disabled={loading} onClick={() => fileRef.current?.click()}>choose a file</button>. CSV only.
           </div>
         </div>
       )}
 
       {state.status === 'loading' && <p className="data-note" role="status">Loading the data…</p>}
       {state.status === 'error' && <p className="data-note data-note-error" role="alert">{state.errorMsg}</p>}
+      {state.loadError && <p className="data-note data-note-error" role="alert">{state.loadError} {datasetTitle(state.filename)} is still loaded.</p>}
       {state.notice && !hasData && <p className="data-note" role="status">{state.notice}</p>}
+      {hasData && state.dataset?.warning && <p className="data-note" role="status">{state.dataset.warning}</p>}
 
       {hasData ? (
         <DataGrid label={datasetTitle(state.filename)} />

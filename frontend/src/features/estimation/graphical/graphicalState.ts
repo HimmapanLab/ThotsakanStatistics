@@ -69,7 +69,8 @@ export const DEFAULT_CONFIG: Omit<GraphicalConfig, 'column'> = {
  */
 export function configForDataset(cfg: GraphicalConfig, numericCols: string[]): GraphicalConfig {
   const columnOk = !cfg.column || numericCols.includes(cfg.column)
-  const weightsOk = !cfg.weightsColumn || numericCols.includes(cfg.weightsColumn)
+  // A column cannot weigh itself, so a weights column equal to the variable is cleared too.
+  const weightsOk = !cfg.weightsColumn || (numericCols.includes(cfg.weightsColumn) && cfg.weightsColumn !== cfg.column)
   if (columnOk && weightsOk) return cfg
 
   return {
@@ -93,6 +94,8 @@ export function updateGraphicalConfig<K extends keyof GraphicalConfig>(
   // A bandwidth is in the units of its variable, so a new variable starts from its own default.
   if (key === 'column' && value !== cfg.column) next.kdeBandwidth = null
   if (next.muEstimator === 'Trimmed Mean' && next.trimParam === null) next.trimParam = 0.1
+  // Picking the weights column as the variable would make it weigh itself: the weights are cleared.
+  if (next.weightsColumn !== null && next.weightsColumn === next.column) next.weightsColumn = null
   return clearWeightsIfUnused(next)
 }
 

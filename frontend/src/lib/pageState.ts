@@ -48,6 +48,15 @@ export function savePageState(topic: Topic, dataset: string, value: unknown): vo
   } catch { /* nothing kept */ }
 }
 
+/** Forget every topic's inputs that belong to a dataset (Clear data); Probability's stay. */
+export function forgetDatasetPageState(): void {
+  try {
+    const probability = read()?.topics.probability
+    if (probability === undefined) localStorage.removeItem(PAGE_STATE_KEY)
+    else localStorage.setItem(PAGE_STATE_KEY, JSON.stringify({ dataset: '', topics: { probability } } satisfies Stored))
+  } catch { /* nothing kept */ }
+}
+
 /** Save `value` whenever it changes, while `dataset` names loaded data (or always, for probability). */
 export function useSavePageState(topic: Topic, dataset: string, value: unknown): void {
   const json = JSON.stringify(value)

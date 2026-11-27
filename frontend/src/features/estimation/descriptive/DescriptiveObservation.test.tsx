@@ -42,6 +42,16 @@ const headers = () => [...container.querySelectorAll('th')].map((th) => th.textC
 const rowOf = (name: string) => [...container.querySelectorAll('tbody tr')].find((tr) => tr.textContent?.includes(name))!
 
 describe('Descriptive statistics table', () => {
+  it('keeps a ticked statistic the backend could not compute in the table, with the reason where its value would be', () => {
+    const negative = { ...result, rows: [{ category: 'Extremes' as const, measure: 'Minimum', value: -1, consistencyCorr: null, statId: 'minimum' }, ...rows] }
+    act(() => root.render(<DescriptiveObservation result={negative} rows={rows} precision={2}
+      config={{ ...config(true), selectedStats: ['mean', 'geometric_mean', 'weighted_mean'] }} />))
+    expect(rowOf('Geometric mean').textContent).toContain('Needs all values above 0')
+    expect(rowOf('Weighted mean').textContent).toContain('Choose a weights column')
+    // They sit under the heading of their category, not in a heading of their own.
+    expect([...container.querySelectorAll('tr.grp')].map((tr) => tr.textContent)).toEqual(['Central Tendency', 'Dispersion'])
+  })
+
   it('tags a statistic the backend marks robust (MAD) as Robust, and no other row', () => {
     render(true)
     expect(rowOf('MAD').textContent).toContain('Robust')

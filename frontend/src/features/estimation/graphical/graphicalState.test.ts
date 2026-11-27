@@ -156,3 +156,18 @@ describe('configForDataset', () => {
     expect(configForDataset(cfg, ['Age']).weightsColumn).toBeNull()
   })
 })
+
+describe('a weights column that equals the variable', () => {
+  const weighted = base({ addNormal: true, muEstimator: 'Weighted Mean', weightsColumn: 'W' })
+
+  it('is cleared when the variable is changed to it, so the column never weighs itself', () => {
+    const next = updateGraphicalConfig(weighted, 'column', 'W')
+    expect(next.weightsColumn).toBeNull()
+    expect(toParams(next, {}).weights_column).toBeNull()
+    expect(validateGraphicalConfig(next, '').weightsColumn).toBe('Select a weights column.')
+  })
+
+  it('is cleared when a dataset reconciliation finds it equal to the variable', () => {
+    expect(configForDataset({ ...weighted, column: 'W' }, ['Age', 'W']).weightsColumn).toBeNull()
+  })
+})

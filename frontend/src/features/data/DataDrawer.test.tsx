@@ -5,6 +5,7 @@ import { DataProvider, useData } from '../../context/DataContext'
 import { DrawerProvider, useDrawer } from '../../context/DrawerContext'
 import DataDrawer from './DataDrawer'
 import DataRail from './DataRail'
+import { uploadCsv } from '../../api/client'
 
 const haptic = vi.fn()
 vi.mock('../../lib/haptics', () => ({ haptic: (kind: string) => haptic(kind) }))
@@ -100,6 +101,52 @@ describe('Data rail and drawer', () => {
     await loadCsv()
     expect(container.querySelector('.data-rail-vert')!.textContent).toMatch(/· 8 rows$/)
     expect(container.querySelector('[role="status"]')!.textContent).toMatch(/^Data loaded: .*8 rows\.$/)
+  })
+
+  it('keeps the loaded data usable when a later upload fails, and says why in the drawer', async () => {
+    await loadCsv()
+    await act(async () => rail().click())
+    vi.mocked(uploadCsv).mockRejectedValueOnce(new Error('The file is empty.'))
+    let done: Promise<boolean> = Promise.resolve(true)
+    await act(async () => { done = api.loadFile(new File([CSV], 'second.csv', { type: 'text/csv' })) })
+    await act(async () => { await done })
+    expect(api.state).toMatchObject({ status: 'ready', filename: 'sample.csv' })
+    const alert = container.querySelector('.data-note-error')!
+    expect(alert.textContent).toContain('The file is empty.')
+    expect(alert.textContent).toContain('sample.csv')
+    expect(container.querySelector('.data-rail-vert')!.textContent).toMatch(/· 8 rows$/)
+    expect(container.querySelector('[role="status"]')!.textContent).not.toMatch(/^Data loaded/)
+  })
+
+  it('disables the example list and the upload button while a file is loading', async () => {
+    await act(async () => rail().click())
+    let finish!: (id: string) => void
+    vi.mocked(uploadCsv).mockImplementationOnce(() => new Promise<string>((resolve) => { finish = resolve }))
+    let done: Promise<boolean> = Promise.resolve(false)
+    await act(async () => { done = api.loadFile(new File([CSV], 'slow.csv', { type: 'text/csv' })) })
+    const uploadButton = Array.from(container.querySelectorAll<HTMLButtonElement>('.data-tools button')).find((b) => b.textContent?.includes('Upload CSV'))!
+    expect(uploadButton.disabled).toBe(true)
+    expect(container.querySelectorAll('button.data-example:disabled')).toHaveLength(3)
+    await act(async () => { await vi.waitFor(() => expect(finish).toBeTypeOf('function')); finish('session-slow'); await done })
+    expect(uploadButton.disabled).toBe(false)
+  })
+
+  it('warns beside the data when a file has one column that holds semicolons', async () => {
+    let done: Promise<boolean> = Promise.resolve(false)
+    await act(async () => { done = api.loadFile(new File(['a;b\n1;2\n'], 'semi.csv', { type: 'text/csv' })) })
+    await act(async () => { await done })
+    await act(async () => rail().click())
+    const notes = Array.from(container.querySelectorAll('.data-note')).map((el) => el.textContent)
+    expect(notes).toContain('This file has one column. Its values look separated by semicolons or tabs, but only commas are read. In Excel, save it as "CSV UTF-8" (comma delimited).')
+  })
+
+  it('shows plain advice, not library text, for a file with no columns', async () => {
+    let done: Promise<boolean> = Promise.resolve(true)
+    await act(async () => { done = api.loadFile(new File([''], 'empty.csv', { type: 'text/csv' })) })
+    await act(async () => { await done })
+    expect(await done).toBe(false)
+    await act(async () => rail().click())
+    expect(container.querySelector('.data-note-error')!.textContent).toBe('This file has no columns. Check it is a CSV with a header row.')
   })
 
   it('guesses a timestamp column as ID and keeps numericCols and categoricalCols per the contract', async () => {
