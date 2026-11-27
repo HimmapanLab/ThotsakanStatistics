@@ -18,7 +18,10 @@ import {
   type ColumnProfile, type ColumnType, type ColumnTypes,
 } from '../utils/columnTypes'
 import { liveSessionId, resetSessionAliases, setSessionRenewer, uploadCsv } from '../api/client'
-import { forgetSession, getCsvStore, loadSession, saveSession, type SavedSession } from '../lib/sessionStore'
+import {
+  clearDatasetData, COLUMN_TYPES_KEY, forgetSession, getCsvStore, loadSession, saveSession, SAVED_DATA_CLEARED,
+  type SavedSession,
+} from '../lib/sessionStore'
 import { clampPrecision, PRECISION_DEFAULT } from '../utils/formatNumber'
 
 /** The display precision is a preference of this browser, kept across reloads and datasets. */
@@ -32,9 +35,6 @@ function savedPrecision(): number {
     return PRECISION_DEFAULT
   }
 }
-
-/** The column types the reader chose, kept beside the session record (lib/sessionStore.ts holds only the two lists). */
-export const COLUMN_TYPES_KEY = 'thotsakan-column-types'
 
 function saveColumnTypes(filename: string, types: ColumnTypes): void {
   try { localStorage.setItem(COLUMN_TYPES_KEY, JSON.stringify({ filename, types })) } catch { /* nothing kept */ }
@@ -50,8 +50,36 @@ function savedColumnTypes(filename: string): Partial<ColumnTypes> | undefined {
   }
 }
 
-function forgetColumnTypes(): void {
-  try { localStorage.removeItem(COLUMN_TYPES_KEY) } catch { /* nothing kept */ }
+// ─── Bringing the data back ───────────────────────────────────────────────────
+
+/** How long a refresh waits for the server and the browser store before it shows the app without the data. */
+export const RESTORE_TIMEOUT_MS = 8000
+
+/** The saved data could not be read right now (no network, a slow store). It may still be there next time. */
+class RestoreUnavailable extends Error {}
+
+function withTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new RestoreUnavailable('timeout')), ms)
+    work.then(
+      (value) => { clearTimeout(timer); resolve(value) },
+      (error) => { clearTimeout(timer); reject(error) },
+    )
+  })
+}
+
+/** The CSV text from last time, or null when it is really gone (no copy in the store, the example is a 404). */
+async function readSavedCsv(saved: SavedSession): Promise<string | null> {
+  if (!saved.exampleKey) return getCsvStore().get()
+  let response: Response
+  try {
+    response = await fetch(`${import.meta.env.BASE_URL}datasets/${saved.exampleKey}`)
+  } catch {
+    throw new RestoreUnavailable('network')
+  }
+  if (response.status === 404) return null
+  if (!response.ok) throw new RestoreUnavailable(`status ${response.status}`)
+  return response.text()
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -83,6 +111,8 @@ export interface DataState {
   // Status
   status: 'idle' | 'loading' | 'ready' | 'error'
   errorMsg: string
+  /** Why the last load failed while earlier data is still loaded and usable (with no data, `status` is 'error'). */
+  loadError: string
   /** One line for the Data tab, e.g. why the data from last time could not be brought back. */
   notice: string
 }
@@ -101,6 +131,7 @@ const initialState: DataState = {
   displayPrecision: PRECISION_DEFAULT,
   status: 'idle',
   errorMsg: '',
+  loadError: '',
   notice: '',
 }
 
@@ -122,7 +153,7 @@ type Action =
 function reducer(state: DataState, action: Action): DataState {
   switch (action.type) {
     case 'LOADING':
-      return { ...state, status: 'loading', errorMsg: '' }
+      return { ...state, status: 'loading', errorMsg: '', loadError: '' }
 
     case 'LOADED': {
       const { dataset, filename, sessionId, restored } = action.payload
@@ -149,6 +180,7 @@ function reducer(state: DataState, action: Action): DataState {
         filters,
         status: 'ready',
         errorMsg: '',
+        loadError: '',
         notice: '',
       }
     }
@@ -157,7 +189,10 @@ function reducer(state: DataState, action: Action): DataState {
       return { ...state, notice: action.payload }
 
     case 'ERROR':
-      return { ...state, status: 'error', errorMsg: action.payload }
+      // A failed load must not take the data the reader already has: it stays usable, the error is shown beside it.
+      return state.dataset
+        ? { ...state, status: 'ready', errorMsg: '', loadError: action.payload }
+        : { ...state, status: 'error', errorMsg: action.payload }
 
     case 'CLEAR':
       // Removing the data keeps the reader's display preference.
@@ -240,7 +275,7 @@ interface DataContextValue {
   getNumericData: (col: string) => number[]
   getUniqueValues: (col: string) => string[]
 
-  /** True while the data from last time is being brought back after a refresh. */
+  /** True while the data from last time is being brought back after a refresh (App shows a shell until then). */
   restoring: boolean
 
   // Actions
@@ -276,10 +311,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // The CSV text and example of the loaded data, so an expired session can be renewed by uploading it again.
   const source = useRef<{ text: string; filename: string; exampleKey: string | null } | null>(null)
 
+  // Only the most recent load may land: each call takes a number, and a call that is no longer the latest (or that
+  // came before Clear data) is dropped when it finishes. `loadAbort` also cancels its upload.
+  const loadToken = useRef(0)
+  const loadAbort = useRef<AbortController | null>(null)
+  const supersedeLoads = useCallback(() => {
+    loadAbort.current?.abort()
+    loadAbort.current = null
+    return ++loadToken.current
+  }, [])
+
   const loadFile = useCallback(async (file: File, options?: { exampleKey?: string | null }): Promise<boolean> => {
+    const token = supersedeLoads()
+    const controller = new AbortController()
+    loadAbort.current = controller
     dispatch({ type: 'LOADING' })
     try {
-      const [dataset, text, sessionId] = await Promise.all([parseFile(file), file.text(), uploadCsv(file)])
+      // Read the file first: its own error (empty, not UTF-8) is clearer than the server's, and nothing is uploaded
+      // for a file that cannot be read.
+      const dataset = await parseFile(file)
+      if (token !== loadToken.current) return false
+      const [text, sessionId] = await Promise.all([file.text(), uploadCsv(file, controller.signal)])
+      if (token !== loadToken.current) return false
       const exampleKey = options?.exampleKey ?? null
       resetSessionAliases()
       source.current = { text, filename: file.name, exampleKey }
@@ -290,36 +343,40 @@ export function DataProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'LOADED', payload: { dataset, filename: file.name, sessionId } })
       return true
     } catch (e) {
+      if (token !== loadToken.current) return false
       dispatch({ type: 'ERROR', payload: e instanceof Error ? e.message : String(e) })
       return false
     }
-  }, [])
+  }, [supersedeLoads])
 
   // Bring back the data from last time: the example from /datasets, an upload from IndexedDB. The saved session
   // id is used as is; if the server has forgotten it, the first request renews it (api/client.ts).
+  // The saved record is forgotten only when the CSV is really gone. A slow or unreachable server or browser store
+  // keeps it, so the next refresh can try again.
   useEffect(() => {
     const saved = loadSession()
     if (!saved) return
     let cancelled = false
+    const token = loadToken.current
+    // Unmounted, or the reader loaded or cleared data in the meantime.
+    const abandoned = () => cancelled || token !== loadToken.current
     void (async () => {
       try {
-        let text: string | null = null
-        if (saved.exampleKey) {
-          const response = await fetch(`${import.meta.env.BASE_URL}datasets/${saved.exampleKey}`)
-          if (response.ok) text = await response.text()
-        } else {
-          text = await getCsvStore().get()
-        }
-        if (cancelled) return
+        const text = await withTimeout(readSavedCsv(saved), RESTORE_TIMEOUT_MS)
+        if (abandoned()) return
         if (!text) throw new Error('missing')
         const dataset = await parseFile(new File([text], saved.filename, { type: 'text/csv' }))
-        if (cancelled) return
+        if (abandoned()) return
         source.current = { text, filename: saved.filename, exampleKey: saved.exampleKey }
         dispatch({ type: 'LOADED', payload: { dataset, filename: saved.filename, sessionId: saved.sessionId, restored: { ...saved, columnTypes: savedColumnTypes(saved.filename) } } })
-      } catch {
-        if (cancelled) return
-        forgetSession()
-        dispatch({ type: 'NOTICE', payload: `${saved.filename} from your last visit is not stored in this browser any more. Load it again to continue.` })
+      } catch (error) {
+        if (abandoned()) return
+        if (error instanceof RestoreUnavailable) {
+          dispatch({ type: 'NOTICE', payload: `Couldn’t bring back ${saved.filename} from your last visit. Check your connection and refresh to try again.` })
+        } else {
+          forgetSession()
+          dispatch({ type: 'NOTICE', payload: `${saved.filename} from your last visit is not stored in this browser any more. Load it again to continue.` })
+        }
       } finally {
         if (!cancelled) setRestoring(false)
       }
@@ -333,6 +390,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const current = source.current
       if (!current) return null
       const fresh = await uploadCsv(new File([current.text], current.filename, { type: 'text/csv' }))
+      // Another file was loaded, or the data was cleared, while this upload was on its way: the new session
+      // belongs to data that is no longer there, so it is dropped and never saved.
+      if (source.current !== current) return null
       const saved = loadSession()
       saveSession({ ...(saved ?? { filename: current.filename, exampleKey: current.exampleKey }), sessionId: fresh })
       return fresh
@@ -355,13 +415,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [state.status, state.sessionId, state.filename, state.numericCols, state.categoricalCols, state.filters, state.columnTypes])
 
   const clearData = useCallback(() => {
+    supersedeLoads()
     source.current = null
     resetSessionAliases()
-    forgetSession()
-    forgetColumnTypes()
-    void getCsvStore().clear()
+    clearDatasetData()
     dispatch({ type: 'CLEAR' })
-  }, [])
+  }, [supersedeLoads])
+
+  // Sign-out (or another person signing in) forgets the saved data: drop what is in memory too.
+  useEffect(() => {
+    const onCleared = () => {
+      supersedeLoads()
+      source.current = null
+      resetSessionAliases()
+      dispatch({ type: 'CLEAR' })
+    }
+    window.addEventListener(SAVED_DATA_CLEARED, onCleared)
+    return () => window.removeEventListener(SAVED_DATA_CLEARED, onCleared)
+  }, [supersedeLoads])
 
   const setFilter = useCallback((col: string, values: string[]) =>
     dispatch({ type: 'SET_FILTER', payload: { col, values } }), [])
@@ -424,9 +495,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       redoColumnTypes,
       setPrecision,
     }}>
-      {restoring
-        ? <p role="status" className="p-6 text-sm text-[var(--color-text-muted)]">Bringing back your data…</p>
-        : children}
+      {children}
     </DataContext.Provider>
   )
 }

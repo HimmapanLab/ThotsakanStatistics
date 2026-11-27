@@ -67,12 +67,15 @@ export function ExampleList({ current, onLoaded, children }: {
   children?: React.ReactNode
 }) {
   const { load, error } = useLoadExample()
+  const { state } = useData()
+  // One load at a time: the examples wait while a file is being read and sent.
+  const loading = state.status === 'loading'
   return (
     <>
       <ul className="data-examples">
         {EXAMPLE_DATASETS.map((dataset) => (
           <li key={dataset.file}>
-            <button type="button" className="data-example" aria-pressed={current === dataset.file}
+            <button type="button" className="data-example" aria-pressed={current === dataset.file} disabled={loading}
               onClick={async () => { if (await load(dataset)) onLoaded?.(dataset) }}>
               <span className="data-example-name">
                 {dataset.title}

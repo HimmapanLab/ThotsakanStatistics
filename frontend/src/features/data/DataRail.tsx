@@ -38,13 +38,13 @@ export default function DataRail({ disabled = false }: { disabled?: boolean } = 
   const latestLabel = useRef(label)
   latestLabel.current = label
   useEffect(() => {
-    if (previousStatus.current === 'loading' && state.status === 'ready' && state.dataset) {
+    if (previousStatus.current === 'loading' && state.status === 'ready' && state.dataset && !state.loadError) {
       setAnnouncement(`Data loaded: ${latestLabel.current}.`)
-    } else if (state.status === 'error') {
+    } else if (state.status === 'error' || state.loadError) {
       setAnnouncement('')
     }
     previousStatus.current = state.status
-  }, [state.status, state.dataset])
+  }, [state.status, state.dataset, state.loadError])
 
   return (
     <aside className={`data-rail${open ? ' is-open' : ''}${disabled ? ' is-disabled' : ''}`} aria-label="Data"

@@ -63,6 +63,7 @@
   padding: 12px 14px; border-radius: var(--radius-md); border: 1.5px solid var(--line); background: var(--surface);
   font: inherit; color: var(--ink); cursor: pointer;
 }
+.data-example:disabled { opacity: 0.6; cursor: default; }
 .data-example:hover { border-color: var(--line-strong); background: var(--row-tint); }
 .data-example[aria-pressed="true"] { border-color: var(--action); box-shadow: 0 0 0 1px var(--action); }
 .data-example-name { font-weight: 600; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }

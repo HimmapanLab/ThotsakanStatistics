@@ -5,13 +5,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EXAMPLE_DATASETS, ExampleList } from './ExampleDatasets'
 
 const loadFile = vi.fn()
-vi.mock('../../context/DataContext', () => ({ useData: () => ({ loadFile }) }))
+let status = 'idle'
+vi.mock('../../context/DataContext', () => ({ useData: () => ({ loadFile, state: { status } }) }))
 
 let root: Root
 let container: HTMLDivElement
 beforeEach(async () => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
   loadFile.mockReset()
+  status = 'idle'
   container = document.createElement('div')
   document.body.appendChild(container)
   root = createRoot(container)
@@ -45,6 +47,17 @@ describe('Example datasets', () => {
     const file = loadFile.mock.calls[0][0] as File
     expect(file.name).toBe('Howell.csv')
     expect(await file.text()).toBe('height,weight\n150,47\n')
+  })
+
+  it('waits while another file is loading, so two clicks cannot race', async () => {
+    status = 'loading'
+    await act(async () => root.render(<ExampleList />))
+    const buttons = Array.from(container.querySelectorAll<HTMLButtonElement>('button.data-example'))
+    expect(buttons).toHaveLength(3)
+    expect(buttons.every((b) => b.disabled)).toBe(true)
+    status = 'ready'
+    await act(async () => root.render(<ExampleList />))
+    expect(container.querySelectorAll<HTMLButtonElement>('button.data-example:disabled')).toHaveLength(0)
   })
 
   it('says so when a dataset cannot be fetched, and loads nothing', async () => {
