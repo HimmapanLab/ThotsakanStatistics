@@ -6,16 +6,22 @@ class SessionEntry(TypedDict):
     data: pd.DataFrame
     last_accessed: float
     nbytes: int
+    owner: str | None  # the uploader's email; None only for sessions tests create directly
 
 # In-memory session store mapping session_id -> SessionEntry
 # TODO: In production, switch to Redis if deploying with multiple workers.
 _session_store: Dict[str, SessionEntry] = {}
 SESSION_TTL_SECONDS = 30 * 60  # 30 minutes
 
-def get_session(session_id: str) -> pd.DataFrame | None:
-    """Retrieve the DataFrame for a session, updating its last_accessed time."""
+def get_session(session_id: str, user: str | None = None) -> pd.DataFrame | None:
+    """Retrieve the DataFrame for a session, updating its last_accessed time.
+
+    A session that belongs to someone other than ``user`` is reported as missing, so a session id
+    seen on a shared computer reveals nothing about whether it exists."""
     entry = _session_store.get(session_id)
     if not entry:
+        return None
+    if entry["owner"] is not None and entry["owner"] != user:
         return None
     
     # Check expiration
@@ -26,13 +32,14 @@ def get_session(session_id: str) -> pd.DataFrame | None:
     entry["last_accessed"] = time.time()
     return entry["data"]
 
-def set_session(session_id: str, data: pd.DataFrame, max_total_bytes: int = 0):
+def set_session(session_id: str, data: pd.DataFrame, max_total_bytes: int = 0, owner: str | None = None):
     """Store exactly one DataFrame per session. With max_total_bytes > 0, the least recently
     used sessions are dropped until all datasets together fit (the new one is always kept)."""
     _session_store[session_id] = {
         "data": data,
         "last_accessed": time.time(),
         "nbytes": int(data.memory_usage(deep=True).sum()),
+        "owner": owner,
     }
     if max_total_bytes > 0:
         _evict_to_fit(max_total_bytes, keep=session_id)

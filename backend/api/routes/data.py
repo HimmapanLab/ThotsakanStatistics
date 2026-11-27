@@ -6,7 +6,9 @@ import io
 import os
 from pathlib import Path
 
+from api.deps import require_user
 from config import Settings, get_settings
+from services.auth import User
 from sessions.store import set_session
 
 MB = 1024 * 1024
@@ -40,7 +42,12 @@ async def _read_capped(file: UploadFile, limit: int) -> bytes:
 
 
 @router.post("/upload")
-async def upload_dataset(request: Request, file: UploadFile = File(...), settings: Settings = Depends(get_settings)):
+async def upload_dataset(
+    request: Request,
+    file: UploadFile = File(...),
+    settings: Settings = Depends(get_settings),
+    user: User = Depends(require_user),
+):
     if not file.filename.endswith('.csv'):
         raise HTTPException(status_code=400, detail="Only CSV files are supported")
 
@@ -59,7 +66,7 @@ async def upload_dataset(request: Request, file: UploadFile = File(...), setting
         session_id = str(uuid.uuid4())
         
         # Store df
-        set_session(session_id, df, max_total_bytes=settings.session_memory_mb * MB)
+        set_session(session_id, df, max_total_bytes=settings.session_memory_mb * MB, owner=user.email)
 
         # Dev only: keep a copy of the raw upload on disk (see docker-compose.dev.yml).
         dump_dir = os.getenv("UPLOAD_DUMP_DIR")

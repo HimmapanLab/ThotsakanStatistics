@@ -7,6 +7,7 @@ from main import app
 from sessions.store import get_session
 
 client = TestClient(app)
+TESTER = "tester@cmkl.ac.th"  # the user tests/conftest.py signs in as
 
 
 def upload(csv: str):
@@ -20,13 +21,13 @@ def test_a_mostly_numeric_column_is_numeric_and_its_other_cells_are_missing():
     # must agree, or every analysis of that column fails on the text cells.
     body = upload("x,g\n" + "".join(f"{i},a\n" for i in range(1, 10)) + "?,b\n")
     assert body["numeric_columns"] == ["x"]
-    assert get_session(body["session_id"])["x"].isna().sum() == 1
+    assert get_session(body["session_id"], TESTER)["x"].isna().sum() == 1
 
 
 def test_a_mostly_text_column_stays_categorical():
     body = upload("x,g\n1,a\n2,b\nlow,c\nhigh,d\n")
     assert body["categorical_columns"] == ["x", "g"]
-    assert get_session(body["session_id"])["x"].tolist() == ["1", "2", "low", "high"]
+    assert get_session(body["session_id"], TESTER)["x"].tolist() == ["1", "2", "low", "high"]
 
 
 @pytest.fixture
@@ -53,5 +54,5 @@ def test_the_oldest_datasets_make_room_when_memory_is_full(limits):
     limits(memory_mb=1)
     rows = "x\n" + "".join(f"{i}\n" for i in range(50_000))  # about 0.4 MB in memory
     first, second, third = (upload(rows)["session_id"] for _ in range(3))
-    assert get_session(first) is None
-    assert get_session(second) is not None and get_session(third) is not None
+    assert get_session(first, TESTER) is None
+    assert get_session(second, TESTER) is not None and get_session(third, TESTER) is not None
