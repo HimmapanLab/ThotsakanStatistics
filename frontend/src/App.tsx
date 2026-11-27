@@ -1,5 +1,7 @@
 import { useState, Suspense, lazy, useMemo, useCallback, useEffect, useRef } from 'react'
 import { ErrorBoundary } from 'react-error-boundary'
+import { ErrorFallback } from './app/ErrorFallback'
+import { withRetry } from './app/lazyRetry'
 import Header from './layout/Header'
 import LabBench from './layout/LabBench'
 import { NoDataState, NoNumericState, LoadingDataState } from './layout/EmptyStates'
@@ -26,69 +28,41 @@ import { queryDomain } from './math/localDistributions'
 import { clampQuery, defaultQuery } from './math/queryDomain'
 
 // Lazy-loaded heavy chart components
-const CommonDistObservation = lazy(() => import('./features/probability/common/CommonDistObservation'))
+const CommonDistObservation = lazy(withRetry(() => import('./features/probability/common/CommonDistObservation')))
 
 // Lazy-loaded Descriptive Statistics panels (from composite DescriptiveTab)
 import { useDescriptiveTabState } from './features/estimation/descriptive/useDescriptiveTabState'
-const DescriptiveControlsSlot = lazy(() =>
-  import('./features/estimation/descriptive/DescriptiveTab').then((m) => ({ default: m.ControlsSlot })))
-const DescriptiveObservationSlot = lazy(() =>
-  import('./features/estimation/descriptive/DescriptiveTab').then((m) => ({ default: m.ObservationSlot })))
+const DescriptiveControlsSlot = lazy(withRetry(() =>
+  import('./features/estimation/descriptive/DescriptiveTab').then((m) => ({ default: m.ControlsSlot }))))
+const DescriptiveObservationSlot = lazy(withRetry(() =>
+  import('./features/estimation/descriptive/DescriptiveTab').then((m) => ({ default: m.ObservationSlot }))))
 
 // Lazy-loaded Statistical Inference panels
 import { useInferenceTabState } from './features/estimation/inference/useInferenceTabState'
-const InferenceControlsSlot = lazy(() =>
-  import('./features/estimation/inference/InferenceTab').then((m) => ({ default: m.ControlsSlot })))
-const InferenceObservationSlot = lazy(() =>
-  import('./features/estimation/inference/InferenceTab').then((m) => ({ default: m.ObservationSlot })))
+const InferenceControlsSlot = lazy(withRetry(() =>
+  import('./features/estimation/inference/InferenceTab').then((m) => ({ default: m.ControlsSlot }))))
+const InferenceObservationSlot = lazy(withRetry(() =>
+  import('./features/estimation/inference/InferenceTab').then((m) => ({ default: m.ObservationSlot }))))
 
 // Lazy-loaded Hypothesis Testing panels
 import { useHypothesisTabState } from './features/hypothesis/useHypothesisTabState'
-const HypothesisControlsSlot = lazy(() =>
-  import('./features/hypothesis/HypothesisTab').then((m) => ({ default: m.ControlsSlot })))
-const HypothesisObservationSlot = lazy(() =>
-  import('./features/hypothesis/HypothesisTab').then((m) => ({ default: m.ObservationSlot })))
+const HypothesisControlsSlot = lazy(withRetry(() =>
+  import('./features/hypothesis/HypothesisTab').then((m) => ({ default: m.ControlsSlot }))))
+const HypothesisObservationSlot = lazy(withRetry(() =>
+  import('./features/hypothesis/HypothesisTab').then((m) => ({ default: m.ObservationSlot }))))
 
 // Lazy-loaded Graphical Analysis panels
 import { useGraphicalTabState } from './features/estimation/graphical/useGraphicalTabState'
 import { loadPageState, useSavePageState } from './lib/pageState'
-const GraphicalControlsSlot = lazy(() =>
-  import('./features/estimation/graphical/GraphicalTab').then((m) => ({ default: m.ControlsSlot })))
-const GraphicalObservationSlot = lazy(() =>
-  import('./features/estimation/graphical/GraphicalTab').then((m) => ({ default: m.ObservationSlot })))
+const GraphicalControlsSlot = lazy(withRetry(() =>
+  import('./features/estimation/graphical/GraphicalTab').then((m) => ({ default: m.ControlsSlot }))))
+const GraphicalObservationSlot = lazy(withRetry(() =>
+  import('./features/estimation/graphical/GraphicalTab').then((m) => ({ default: m.ObservationSlot }))))
 
 function ChartFallback() {
   return (
     <div className="flex items-center justify-center h-full text-[var(--color-text-muted)] text-sm">
       Loading chart…
-    </div>
-  )
-}
-
-function ErrorFallback({ error, resetErrorBoundary }: { error: Error, resetErrorBoundary: () => void }) {
-  return (
-    <div className="flex flex-col items-center justify-center h-full p-8 mx-auto max-w-2xl text-center">
-      <div className="border border-[var(--error)] bg-[var(--error-bg)] rounded-xl p-8 w-full">
-        <h2 className="text-2xl font-bold text-[var(--error)] mb-4 flex justify-center items-center gap-2">
-          <span className="text-3xl">⚠️</span> Something went wrong
-        </h2>
-        <div className="text-sm text-left w-full overflow-auto max-h-64 bg-[var(--field)] border border-[var(--line)] p-4 rounded-lg mb-6">
-          <pre className="font-mono text-[var(--ink)] leading-relaxed whitespace-pre-wrap">
-            {error.name}: {error.message}
-          </pre>
-          {error.stack && (
-            <pre className="mt-4 pt-4 border-t border-[var(--line)] font-mono text-[var(--ink-muted)] text-xs whitespace-pre-wrap">
-              {error.stack}
-            </pre>
-          )}
-        </div>
-        <button
-          onClick={resetErrorBoundary}
-          className="px-6 py-3 bg-[var(--color-primary)] hover:brightness-110 text-white font-medium rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[var(--ground)] focus:ring-[var(--color-primary)]"
-        >
-          Recover and Restart
-        </button>
-      </div>
     </div>
   )
 }
@@ -129,6 +103,8 @@ export default function App() {
     const frame = window.requestAnimationFrame(() => {
       // The Data drawer opened with the page ("Load data" on the front page) has already taken the focus.
       if (document.activeElement?.closest('.bench-drawer')) return
+      // The tour or Preferences opened with the page: focus stays on its card.
+      if (document.activeElement?.closest('.tour-coach, .sh-sheet')) return
       document.querySelector<HTMLElement>('h1')?.focus({ preventScroll: true })
     })
     return () => window.cancelAnimationFrame(frame)
@@ -137,6 +113,8 @@ export default function App() {
   // ── The tour ────────────────────────────────────────────────────────────────
   const [tourOpen, setTourOpen] = useState(false)
   const pendingTour = useRef(false)
+  /** The page the open tour started on. */
+  const tourRoute = useRef<Route | null>(null)
   const autoOffered = useRef(false)
   const routeRef = useRef(route)
   routeRef.current = route
@@ -144,6 +122,7 @@ export default function App() {
   const startTour = useCallback(() => {
     if (isBenchRoute(routeRef.current)) {
       setDrawerOpen(false)
+      tourRoute.current = routeRef.current
       setTourOpen(true)
     } else {
       // The front page has no inputs to point at: go to a page that has, and start there.
@@ -152,14 +131,21 @@ export default function App() {
     }
   }, [setDrawerOpen, setRoute])
 
+  // The tour belongs to the page it started on: another page has other parts to point at, so it closes (not finished).
+  useEffect(() => {
+    if (tourOpen && tourRoute.current !== route) setTourOpen(false)
+  }, [route, tourOpen])
+
   useEffect(() => {
     if (!isBenchRoute(route) || prefsOpen) return
     if (pendingTour.current) {
       pendingTour.current = false
+      tourRoute.current = route
       setTourOpen(true)
     } else if (!autoOffered.current && !tourOpen && !drawerOpen && !tourSeen()) {
       // First visit to a page with inputs: offer the tour once
       autoOffered.current = true
+      tourRoute.current = route
       setTourOpen(true)
     }
   }, [route, prefsOpen, tourOpen, drawerOpen])
@@ -300,7 +286,13 @@ export default function App() {
         <div className="app-stage">
           <ErrorBoundary
             fallbackRender={({ error, resetErrorBoundary }) => <ErrorFallback error={error as Error} resetErrorBoundary={resetErrorBoundary} />}
-            onReset={() => setRoute('home')}
+            onReset={(details) => {
+              // Moving to another page only clears the error; Recover goes to the front page, or, when already
+              // there with nowhere else to go, loads the app again.
+              if (details.reason === 'keys') return
+              if (routeRef.current === 'home') window.location.reload()
+              else setRoute('home')
+            }}
             resetKeys={[route]}
           >
             {content}
