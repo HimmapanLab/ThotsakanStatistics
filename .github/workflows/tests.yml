@@ -1,11 +1,11 @@
 name: Tests
 
-# Runs on every pull request into dev or main, whatever it changes, so branch protection can require it.
+# Runs on every pull request, whatever its base and whatever it changes, so branch protection can require it
+# and a pull request stacked on another branch is checked too.
 on:
   push:
     branches: [dev]
   pull_request:
-    branches: [dev, main]
   workflow_dispatch:
 
 jobs:
