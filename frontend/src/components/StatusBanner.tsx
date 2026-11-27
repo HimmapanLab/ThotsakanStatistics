@@ -1,6 +1,7 @@
+import { OFFLINE_MESSAGE } from '../api/client'
 import { useOnline } from '../hooks/useOnline'
 
-export const OFFLINE_MESSAGE = 'You are offline. Results will update when the connection is back.'
+export { OFFLINE_MESSAGE }
 
 /**
  * The one place a tab reports its result state (docs/interaction_contract.md, rules 7 and 16): computing,

@@ -64,7 +64,14 @@ async function renew(id: string): Promise<string | null> {
 /** FastAPI sends `detail` as a string, or as a list of validation errors. */
 export async function readError(response: Response): Promise<string> {
   const text = await response.text().catch(() => '')
-  if (!text) return `The server answered with status ${response.status} and no message. Try again in a moment.`
+  // A proxy in front of a restarting backend answers 502 to 504, often with an HTML page: never show that page.
+  if (response.status >= 502 && response.status <= 504) return UNREACHABLE
+  if (!text) {
+    return response.status === 500
+      ? 'The server did not answer properly. It may be restarting: try again in a moment.'
+      : `The server answered with status ${response.status} and no message. Try again in a moment.`
+  }
+  if (text.trimStart().startsWith('<')) return UNREACHABLE
   try {
     const body = JSON.parse(text) as { detail?: unknown }
     const detail = body.detail
@@ -96,28 +103,51 @@ export function waitForOnline(signal?: AbortSignal): Promise<void> {
   })
 }
 
+/** What a reader sees while a request waits for the connection (components/StatusBanner re-exports it). */
+export const OFFLINE_MESSAGE = 'You are offline. Results will update when the connection is back.'
+
+/** A request that has no answer after this long is given up, so "Updating…" never lasts forever. */
+export const REQUEST_TIMEOUT_MS = 60_000
+/** An upload carries the whole file, so it gets longer. */
+export const UPLOAD_TIMEOUT_MS = 120_000
+export const TIMEOUT_MESSAGE = 'The server took too long to answer. Try again in a moment.'
+
 /** What a reader sees when the request never reached the server (the browser's own text is "Failed to fetch"). */
 export const UNREACHABLE = 'Can’t reach the server. Check your connection and try again.'
 
-/** A network failure is a TypeError from fetch; a cancelled request (AbortError) is passed on unchanged. */
-async function fetchOnce(path: string, init: RequestInit, signal?: AbortSignal): Promise<Response> {
+/**
+ * A network failure is a TypeError from fetch; a cancelled request (AbortError) is passed on unchanged; a request
+ * with no answer within `timeoutMs` ends with TIMEOUT_MESSAGE. The timer is ours (not AbortSignal.any) so that it
+ * works in every browser, and it starts here, after any wait for the connection.
+ */
+async function fetchOnce(path: string, init: RequestInit, signal?: AbortSignal, timeoutMs = REQUEST_TIMEOUT_MS): Promise<Response> {
+  const controller = new AbortController()
+  let timedOut = false
+  const onAbort = () => controller.abort()
+  if (signal?.aborted) controller.abort()
+  else signal?.addEventListener('abort', onAbort)
+  const timer = setTimeout(() => { timedOut = true; controller.abort() }, timeoutMs)
   try {
-    return await fetch(path, { ...init, signal })
+    return await fetch(path, { ...init, signal: controller.signal })
   } catch (error) {
+    if (timedOut && !signal?.aborted) throw new Error(TIMEOUT_MESSAGE)
     if ((error as Error)?.name === 'AbortError') throw error
     throw error instanceof TypeError ? new Error(UNREACHABLE) : error
+  } finally {
+    clearTimeout(timer)
+    signal?.removeEventListener('abort', onAbort)
   }
 }
 
-async function send(path: string, init: RequestInit, signal?: AbortSignal): Promise<Response> {
+async function send(path: string, init: RequestInit, signal?: AbortSignal, timeoutMs?: number): Promise<Response> {
   await waitForOnline(signal)
   try {
-    return await fetchOnce(path, init, signal)
+    return await fetchOnce(path, init, signal, timeoutMs)
   } catch (error) {
     // A network failure while offline: wait for the connection, then try once more.
     if ((error as Error)?.name !== 'AbortError' && isOffline()) {
       await waitForOnline(signal)
-      return fetchOnce(path, init, signal)
+      return fetchOnce(path, init, signal, timeoutMs)
     }
     throw error
   }
@@ -138,11 +168,14 @@ export async function postJson<T>(path: string, body: unknown, { sessionId, sign
   }, signal)
 
   const original = sessionId ?? null
-  let response = await attempt(original ? liveSessionId(original) : null)
+  const sentWith = original ? liveSessionId(original) : null
+  let response = await attempt(sentWith)
   if (response.status === 404 && original) {
     const message = await readError(response.clone())
     if (SESSION_LOST.test(message)) {
-      const fresh = await renew(original)
+      // The session may have been renewed while this request was on its way: use that id, do not upload again.
+      const live = liveSessionId(original)
+      const fresh = live !== sentWith ? live : await renew(original)
       if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
       if (fresh) response = await attempt(fresh)
     }
@@ -151,11 +184,15 @@ export async function postJson<T>(path: string, body: unknown, { sessionId, sign
   return response.json() as Promise<T>
 }
 
-/** Upload a CSV and return the new session id. */
+/**
+ * Upload a CSV and return the new session id. Offline it fails at once with OFFLINE_MESSAGE instead of waiting
+ * (a reader loading data wants to know, and can try again); `signal` cancels it, and it times out.
+ */
 export async function uploadCsv(file: File, signal?: AbortSignal): Promise<string> {
+  if (isOffline()) throw new Error(OFFLINE_MESSAGE)
   const form = new FormData()
   form.append('file', file)
-  const response = await send('/api/data/upload', { method: 'POST', body: form }, signal)
+  const response = await send('/api/data/upload', { method: 'POST', body: form }, signal, UPLOAD_TIMEOUT_MS)
   if (!response.ok) throw new ApiError(await readError(response), response.status)
   const data = await response.json() as { session_id: string }
   return data.session_id
