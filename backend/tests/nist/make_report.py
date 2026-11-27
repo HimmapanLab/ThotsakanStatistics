@@ -46,7 +46,7 @@ def build() -> str:
         "`tests/nist/data/` (see `SOURCE.md`).",
         "",
         "LRE = -log10(|x - c| / |c|), the number of correct significant digits, capped at 15. "
-        "A value passes when `LRE(ours) >= LRE(baseline) - 0.5`. The baseline is an independent "
+        "A value passes when `LRE(ours) >= LRE(baseline) - 0.5`, or when it has at least 14 correct digits (the noise floor of double precision). The baseline is an independent "
         "computation: numpy for the univariate statistics; `scipy.stats.f_oneway` (F) and two-pass numpy "
         "sums of squares (everything else) for ANOVA. `xfail` is a known, strictly tracked shortfall "
         "(see `test_nist_strd.py`). The F shortfall comes from the between sum of squares: pingouin's "

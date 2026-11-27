@@ -11,7 +11,8 @@ large constant offset; ``f_oneway`` subtracts the grand mean first and keeps abo
 (centring the data before the same two-pass code reproduces scipy's F digit for digit). A centred
 sum-of-squares baseline would therefore turn between SS, between MS and R-squared into xfails on the
 same files. The xfails are strict, so the suite goes red the day a library upgrade fixes (or worsens)
-them, and ``core/`` is not touched. SmLs01 is only a 0.55-digit gap at 14.45 digits (noise floor).
+them, and ``core/`` is not touched. A value with at least ``strd.NOISE_FLOOR`` (14) correct digits
+always passes: gaps that close to double precision are rounding noise that differs between machines.
 """
 import pytest
 
@@ -20,7 +21,7 @@ import strd
 # F = MS_between / MS_within from pingouin's table, against scipy.stats.f_oneway, which centres
 # the data before summing. Measured with the locked versions (pingouin 0.7.0, scipy 1.18.1).
 XFAIL_F = {
-    "SmLs01": (14.45, 15.00), "SmLs04": (8.74, 10.43), "SmLs05": (9.29, 10.21),
+    "SmLs04": (8.74, 10.43), "SmLs05": (9.29, 10.21),
     "SmLs06": (9.19, 10.19), "SmLs07": (2.72, 4.41), "SmLs08": (3.27, 4.19),
     "SmLs09": (3.17, 4.17), "AtmWtAg": (8.49, 10.15),
 }

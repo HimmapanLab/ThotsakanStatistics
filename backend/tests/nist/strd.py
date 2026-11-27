@@ -52,6 +52,9 @@ def difficulty(name: str) -> str:
     return match.group(1) if match else "not stated"
 
 
+NOISE_FLOOR = 14.0  # correct digits at which any value passes (doubles carry about 15.9)
+
+
 @dataclass(frozen=True)
 class Univariate:
     name: str
@@ -138,7 +141,9 @@ class Measurement:
 
     @property
     def passed(self) -> bool:
-        return self.lre_ours >= self.lre_baseline - 0.5
+        # At NOISE_FLOOR digits both values agree to what a double holds; a gap there is rounding
+        # noise that differs between machines (BLAS), not a difference in method.
+        return self.lre_ours >= NOISE_FLOOR or self.lre_ours >= self.lre_baseline - 0.5
 
 
 def _measure(dataset: str, level: str, quantity: str, certified: float, ours: float, baseline: float):
