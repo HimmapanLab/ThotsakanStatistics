@@ -23,7 +23,7 @@ export const MAX_LEVELS = 20
 
 export interface ColumnProfile {
   name: string
-  /** Cells that hold something: not blank, not "null", not "NA". */
+  /** Cells that hold something: not one of the spellings pandas reads as missing (see isMissingCell). */
   filled: number
   /** Share of the filled cells that are numbers, 0 to 1. */
   numericShare: number
@@ -31,31 +31,50 @@ export interface ColumnProfile {
   nUnique: number
   /** True when every number in the column is a whole number. */
   wholeNumbers: boolean
+  /** True when the column would be numeric if the thousands separators were removed ("1,234"). The server reads
+   *  those cells as text too, so this only explains the refusal in the type menu. */
+  thousandsSeparated?: boolean
 }
 
-/** A blank cell, "null" and "NA" count as missing. One definition for the whole app. */
+/** The spellings pandas' read_csv reads as missing by default (pandas STR_NA_VALUES). The server reads the file
+ *  with pandas, so the browser must agree. pandas compares the exact text: it does not trim or ignore case, so
+ *  " NA", "none" and "?" are values, not missing. */
+const MISSING_SPELLINGS: ReadonlySet<string> = new Set([
+  '', '#N/A', '#N/A N/A', '#NA', '-1.#IND', '-1.#QNAN', '-NaN', '-nan', '1.#IND', '1.#QNAN', '<NA>', 'N/A', 'NA',
+  'NULL', 'NaN', 'None', 'n/a', 'nan', 'null',
+])
+
+/** A cell pandas reads as missing. One definition for the whole app. */
 export function isMissingCell(value: string): boolean {
-  const text = value.trim().toLowerCase()
-  return text === '' || text === 'null' || text === 'na'
+  return MISSING_SPELLINGS.has(value)
 }
+
+/** A cell the server reads as a number: pandas ignores spaces around it, and a cell of only spaces is text. */
+const isNumberCell = (value: string) => value.trim() !== '' && !Number.isNaN(Number(value))
+
+const THOUSANDS = /^[-+]?\d{1,3}(,\d{3})+(\.\d+)?$/
 
 export function profileColumn(rows: Record<string, string>[], name: string): ColumnProfile {
   const seen = new Set<string>()
   let filled = 0
   let numbers = 0
   let whole = true
+  let thousands = 0
   for (const row of rows) {
     const value = row[name] ?? ''
     if (isMissingCell(value)) continue
     filled++
     seen.add(value)
-    const number = Number(value)
-    if (!Number.isNaN(number)) {
+    if (isNumberCell(value)) {
       numbers++
-      if (!Number.isInteger(number)) whole = false
-    }
+      if (!Number.isInteger(Number(value))) whole = false
+    } else if (THOUSANDS.test(value.trim())) thousands++
   }
-  return { name, filled, numericShare: filled === 0 ? 0 : numbers / filled, nUnique: seen.size, wholeNumbers: whole }
+  const numericShare = filled === 0 ? 0 : numbers / filled
+  return {
+    name, filled, numericShare, nUnique: seen.size, wholeNumbers: whole,
+    thousandsSeparated: thousands > 0 && numericShare < NUMERIC_SHARE && (numbers + thousands) / filled >= NUMERIC_SHARE,
+  }
 }
 
 export function profileColumns(headers: string[], rows: Record<string, string>[]): Record<string, ColumnProfile> {
@@ -77,17 +96,20 @@ export function guessType(profile: ColumnProfile): ColumnType {
   return profile.nUnique <= MAX_LEVELS && !nearUnique ? 'Nominal' : 'ID'
 }
 
+const notNumbers = (profile: ColumnProfile) => (profile.thousandsSeparated ? THOUSANDS_HINT : NOT_NUMBERS)
+
 export type TypeFit = { ok: true } | { ok: false; reason: string }
 
 const NOT_NUMBERS = 'Fewer than 80% of the values are numbers.'
+const THOUSANDS_HINT = `${NOT_NUMBERS} Values like "1,234" are read as text; remove the thousands separators in the file.`
 
 /** Whether a column may take a type, and if not, why (the reason is shown next to the greyed option). */
 export function typeFit(profile: ColumnProfile, type: ColumnType): TypeFit {
   switch (type) {
     case 'Continuous':
-      return isNumericColumn(profile) ? { ok: true } : { ok: false, reason: NOT_NUMBERS }
+      return isNumericColumn(profile) ? { ok: true } : { ok: false, reason: notNumbers(profile) }
     case 'Discrete':
-      if (!isNumericColumn(profile)) return { ok: false, reason: NOT_NUMBERS }
+      if (!isNumericColumn(profile)) return { ok: false, reason: notNumbers(profile) }
       return profile.wholeNumbers ? { ok: true } : { ok: false, reason: 'Has decimal values; Discrete needs whole numbers.' }
     case 'Ordinal':
     case 'Nominal':

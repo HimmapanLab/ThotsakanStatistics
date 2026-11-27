@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  guessType, guessTypes, isNumericColumn, profileColumn, profileColumns, splitColumns, typeFit, typesFromLists, validTypes, variableOptions,
+  guessType, guessTypes, isMissingCell, isNumericColumn, profileColumn, profileColumns, splitColumns, typeFit, typesFromLists, validTypes, variableOptions,
 } from './columnTypes'
 
 const rowsOf = (name: string, values: string[]) => values.map((value) => ({ [name]: value }))
@@ -90,5 +90,40 @@ describe('variableOptions', () => {
   })
   it('shows just the name when the type is not known', () => {
     expect(variableOptions(['Demand'])).toEqual([{ value: 'Demand', label: 'Demand' }])
+  })
+})
+
+describe('missing cells match pandas', () => {
+  it('reads exactly the spellings pandas read_csv reads as missing (pandas 2.3 STR_NA_VALUES)', () => {
+    const spellings = ['', '#N/A', '#N/A N/A', '#NA', '-1.#IND', '-1.#QNAN', '-NaN', '-nan', '1.#IND', '1.#QNAN', '<NA>', 'N/A', 'NA', 'NULL', 'NaN', 'None', 'n/a', 'nan', 'null']
+    for (const text of spellings) expect(isMissingCell(text), text).toBe(true)
+  })
+  it('keeps "?", "none", "Null", "na" and padded text as values, as pandas does', () => {
+    for (const text of ['?', 'none', 'Null', 'na', ' NA', 'NA ', 'N A', '0', '-']) expect(isMissingCell(text), text).toBe(false)
+  })
+  it('types a numeric column with 25% "N/A" as Continuous', () => {
+    const column = profile('y', ['1.5', '2.5', '3.5', 'N/A', '4.5', '5.5', '6.5', 'N/A'])
+    expect(column.filled).toBe(6)
+    expect(guessType(column)).toBe('Continuous')
+  })
+  it('counts "?" against the 80% rule, because pandas does not read it as missing', () => {
+    const column = profile('y', ['1.5', '2.5', '3.5', '?', '4.5'])
+    expect(column.filled).toBe(5)
+    expect(column.numericShare).toBeCloseTo(0.8)
+    expect(isNumericColumn(profile('z', ['1.5', '2.5', '?', '?', '4.5']))).toBe(false)
+  })
+  it('does not count a cell of only spaces as a number', () => {
+    expect(profile('y', ['1', '2', '   ', '3']).numericShare).toBeCloseTo(0.75)
+  })
+})
+
+describe('numbers written with thousands separators', () => {
+  it('stay text, and the type menu says why', () => {
+    const column = profile('revenue', ['1,234', '2,500', '10,000', '999', '1,000,000'])
+    expect(isNumericColumn(column)).toBe(false)
+    expect(typeFit(column, 'Continuous')).toMatchObject({ ok: false, reason: expect.stringContaining('thousands separators') })
+  })
+  it('give the plain reason for ordinary text', () => {
+    expect(typeFit(profile('g', ['1,2', 'a', 'b']), 'Continuous')).toEqual({ ok: false, reason: 'Fewer than 80% of the values are numbers.' })
   })
 })
