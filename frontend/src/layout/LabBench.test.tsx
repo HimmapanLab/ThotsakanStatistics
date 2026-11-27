@@ -1,6 +1,7 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { setTextSize } from '../components/Settings'
 import { DataProvider } from '../context/DataContext'
 import { DrawerProvider, useDrawer } from '../context/DrawerContext'
 import LabBench from './LabBench'
@@ -101,5 +102,26 @@ describe('bench', () => {
     used.preventDefault()
     act(() => { document.body.dispatchEvent(used) })
     expect(state()).toBe('open')
+  })
+})
+
+describe('text size', () => {
+  afterEach(() => {
+    setTextSize('standard')
+    document.documentElement.style.fontSize = ''
+    delete (HTMLElement.prototype as { clientWidth?: number }).clientWidth
+    vi.unstubAllGlobals()
+  })
+
+  it('measures the room again when the text size changes, so the results keep their least width', () => {
+    vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, get() { return this.classList?.contains('bench') ? 900 : 0 } })
+    render('hypothesis')
+    const max = () => Number(container.querySelector('[role="separator"]')!.getAttribute('aria-valuemax'))
+    const standard = max()
+    // Preferences: the root font size grows (here by inline style, as jsdom has no stylesheet), then the page is told.
+    document.documentElement.style.fontSize = '18px'
+    act(() => setTextSize('projector'))
+    expect(max()).toBeLessThan(standard)
   })
 })
