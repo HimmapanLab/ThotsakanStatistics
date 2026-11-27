@@ -92,6 +92,7 @@ api/routes/  (+ api/deps, api/schemas)
 | `sessions/store.py` | In-memory dict, 30-min TTL |
 | `main.py` | App, CORS, routers (all but auth behind `require_user`), session cleanup loop, `/api/health` |
 | `config.py` | Settings from the root `.env`; refuses to start if auth is misconfigured |
+| `logging_setup.py` | One JSON log line per request on stdout (method, path, status, duration, request id, keyed hash of the user); an unexpected error logs its type and code location but never its message, and answers a plain 500 with the request id. No bodies, file names, columns, values or emails |
 | `tests/` | pytest (`testpaths = tests`): core/service tests, `tests/services/`, `tests/api/`; `conftest.py` signs tests in |
 
 ## 5. Frontend layout
