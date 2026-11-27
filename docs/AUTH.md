@@ -75,7 +75,7 @@ python3 -c "import secrets; print(secrets.token_urlsafe(48))"
 | `AUTH_SECRET_KEY` | yes | Signs the session cookie. Changing it signs everyone out. Keep it secret |
 | `AUTH_ALLOWED_DOMAIN` | no (`cmkl.ac.th`) | Only emails ending `@<domain>` (exact; subdomains are not allowed) |
 | `AUTH_SESSION_HOURS` | no (`12`) | Lifetime of a login |
-| `AUTH_COOKIE_SECURE` | no (`false`) | Set `true` behind HTTPS so the cookie is HTTPS-only |
+| `AUTH_COOKIE_SECURE` | no (`true` in `docker-compose.yml`, `false` in `.env.example`) | `true` behind HTTPS so the cookie is HTTPS-only. Browsers accept it on `http://localhost` too; only plain HTTP on another host needs `false`. The backend logs a warning at startup when it is `false` and sign-in is on |
 | `AUTH_DISABLED` | no (`false`) | **Dev only.** Skips login and treats everyone as a dev user. The UI shows an amber "Auth disabled (dev)" badge. Never use in production |
 | `DEMO_MODE` | no (`false`) | **Public demo only.** Skips login, shows a neutral "Demo" badge and applies the demo limits. Run it as a separate instance (see [Demo mode](#demo-mode)) |
 
