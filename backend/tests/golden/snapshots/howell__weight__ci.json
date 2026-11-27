@@ -1,0 +1,42 @@
+{
+ "endpoint": "/api/inference/ci",
+ "dataset": "Howell.csv",
+ "request": {
+  "column": "weight"
+ },
+ "response": {
+  "table": [
+   {
+    "Interval Type": "Confidence",
+    "Statistic": "Mean",
+    "Lower": 34.3709612608,
+    "Upper": 36.8502739241,
+    "Method": "t (df=543)"
+   },
+   {
+    "Interval Type": "Confidence",
+    "Statistic": "Median",
+    "Lower": 38.5076277596,
+    "Upper": 41.6080592404,
+    "Method": "Normal (asymptotic, s (ddof=1))"
+   },
+   {
+    "Interval Type": "Confidence",
+    "Statistic": "Deviation",
+    "Lower": 13.8934449561,
+    "Upper": 15.6500554865,
+    "Method": "Chi-square (s, ddof=1)"
+   }
+  ],
+  "n": 544,
+  "point_estimates": {
+   "mean": 35.610617592463235,
+   "median": 40.057843500000004,
+   "deviation": 14.719178179279988
+  },
+  "histogram": {
+   "binEdges": [4.252425, 10.126441400000001, 16.0004578, 21.874474199999998, 27.7484906, 33.622507000000006, 39.4965234, 45.3705398, 51.244556200000005, 57.11857260000001, 62.992589],
+   "counts": [33, 57, 44, 28, 27, 76, 112, 107, 52, 8]
+  }
+ }
+}
