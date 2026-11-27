@@ -26,6 +26,11 @@ export function initialDraft(column = ''): HypothesisDraft {
   };
 }
 
+const groupLabel = (group: GroupSpec, index: number) => group.name.trim() || `Group ${index + 1}`;
+
+/** The way to get a grouping column: the type tag sits under the column name in the Data grid. */
+export const NO_GROUP_COLUMNS = 'No column can make groups yet. In Data, click the type tag under a column name and choose Nominal.';
+
 export function validateDraft(draft: HypothesisDraft, numericCols: string[], categoricalCols: string[]) {
   const errors: Partial<Record<'column' | 'mu0Str' | 'alphaStr' | 'groups', string>> = {};
   const groups = draft.testType === TWO_SAMPLE_T || draft.testType === EQUAL_VARIANCE;
@@ -38,9 +43,10 @@ export function validateDraft(draft: HypothesisDraft, numericCols: string[], cat
   if (!draft.alphaStr.trim() || !Number.isFinite(alpha) || alpha < 0.001 || alpha > 0.5) {
     errors.alphaStr = 'Enter α between 0.001 and 0.5.';
   }
-  if ((groups || anova) && categoricalCols.length === 0) errors.groups = 'Choose a categorical column in Data → Column Types first.';
+  if ((groups || anova) && categoricalCols.length === 0) errors.groups = NO_GROUP_COLUMNS;
   else if (groups && [draft.group1, draft.group2].some(g => !categoricalCols.includes(g.column) || !g.values.length)) {
-    errors.groups = 'Choose a column and at least one category for each group.';
+    const unfinished = [draft.group1, draft.group2].flatMap((g, i) => !categoricalCols.includes(g.column) || !g.values.length ? [groupLabel(g, i)] : []);
+    errors.groups = `Choose a column and at least one category for ${unfinished.join(' and ')}.`;
   } else if (anova && (!categoricalCols.includes(draft.anovaGroup.column) || draft.anovaGroup.values.length < 2)) {
     errors.groups = 'Choose a factor and at least two categories.';
   }
@@ -217,6 +223,8 @@ export function useHypothesisTabState() {
     runIfValid(next);
   };
   const isDirty = !!result && JSON.stringify(validation.config) !== JSON.stringify(applied?.config);
+  /** The result on screen cannot be updated because the settings are unfinished: what is missing, instead of "Updating…". */
+  const incompleteReason = result && !validation.config ? Object.values(validation.errors)[0] ?? null : null;
   const groupCounts = useMemo(() => {
     const countGroup = (group: GroupSpec) => {
       if (!group.column || !group.values.length) return 0;
@@ -231,8 +239,15 @@ export function useHypothesisTabState() {
     return [countGroup(draft.group1), countGroup(draft.group2)];
   }, [filteredRows, draft.column, draft.group1, draft.group2]);
 
+  // A group the filters left without rows is named, so the reader knows which one to change.
+  const emptyGroups = [draft.group1, draft.group2].flatMap((group, index) =>
+    (draft.testType === TWO_SAMPLE_T || draft.testType === EQUAL_VARIANCE) && group.values.length && groupCounts[index] === 0 ? [groupLabel(group, index)] : []);
+  const namedError = error && emptyGroups.length
+    ? `${error} ${emptyGroups.join(' and ')} ${emptyGroups.length > 1 ? 'have' : 'has'} no rows with a value for this variable: change ${emptyGroups.length > 1 ? 'their categories' : 'its categories'} or the filter.`
+    : error;
+
   return {
-    draft, setDraft, result, applied, isComputing, error, isDirty,
+    draft, setDraft, result, applied, isComputing, error: namedError, isDirty, incompleteReason,
     handleRetry, handleReset,
     validationErrors: validation.errors,
     hasData: data.status === 'ready' && !!data.dataset,

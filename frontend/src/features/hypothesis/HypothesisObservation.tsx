@@ -29,6 +29,8 @@ interface HypothesisObservationProps {
   precision: number;
   isComputing: boolean;
   isDirty: boolean;
+  /** What is missing from unfinished settings, shown instead of "Updating…" (the result on screen is then not being updated). */
+  incompleteReason?: string | null;
   error?: string | null;
   onRetry?: () => void;
 }
@@ -114,7 +116,7 @@ function RawTable({ rows, precision }: { rows: Record<string, unknown>[]; precis
  * and the user decides (Irving's rule). While the next result loads the last one stays, dimmed.
  */
 export default function HypothesisObservation({
-  result, hasData, loaded, picked = true, column = '', precision, isComputing, isDirty, error = null, onRetry,
+  result, hasData, loaded, picked = true, column = '', precision, isComputing, isDirty, incompleteReason = null, error = null, onRetry,
 }: HypothesisObservationProps) {
   const registry = useChartRegistry(CHART_ORDER);
   const rows = useMemo(() => parseTable(result), [result]);
@@ -190,7 +192,7 @@ export default function HypothesisObservation({
   const ciPair = Array.isArray(ci) && ci.length === 2 ? (ci as number[]) : null;
   const effect = first['cohen-d'];
   const baseName = `hypothesis-${result.test_type}`;
-  const updating = isComputing || isDirty;
+  const updating = isComputing || (isDirty && !incompleteReason);
   const canExport = !isDirty && !isComputing && registry.ready;
   const exportHandlers = canExport ? {
     png: () => downloadChartsPNG(registry.charts, exportFilename(`${baseName}-chart`, 'png', 'hypothesis')),
@@ -245,12 +247,13 @@ export default function HypothesisObservation({
   };
 
   return (
-    <Out updating={updating}>
+    <Out updating={updating} notice={incompleteReason ? `This is the earlier ${result.test_type}. To update it: ${incompleteReason}` : undefined}>
       <ResultsHead title={`Hypothesis Testing · ${result.test_type}`} sub={column || undefined}>
         <ExportMenu handlers={exportHandlers} ready={canExport}
-          disabledReason={isDirty ? 'Waiting for the updated result.' : isComputing ? 'Waiting for the result.' : 'Chart is still loading.'} />
+          disabledReason={incompleteReason ? 'Finish the settings first.' : isDirty ? 'Waiting for the updated result.' : isComputing ? 'Waiting for the result.' : 'Chart is still loading.'} />
       </ResultsHead>
-      <StatusBanner isComputing={false} error={error} hasResult onRetry={onRetry} />
+      <StatusBanner isComputing={false} error={error} hasResult onRetry={onRetry}
+        resultNotice={`Previous result — update failed. The ${result.test_type} below uses the earlier settings, not the new ones.`} />
 
       <Block title="Hypotheses">
         <dl className="hp-hyps">

@@ -10,5 +10,5 @@ export function ControlsSlot({ state }: { state: HypothesisTabState }) {
 export function ObservationSlot({ state }: { state: HypothesisTabState }) {
   return <HypothesisObservation result={state.result} hasData={state.hasData && state.numericCols.length > 0}
     loaded={state.hasData} picked={state.picked} column={state.draft.column} precision={state.precision}
-    isComputing={state.isComputing} isDirty={state.isDirty} error={state.error} onRetry={state.handleRetry} />;
+    isComputing={state.isComputing} isDirty={state.isDirty} incompleteReason={state.incompleteReason} error={state.error} onRetry={state.handleRetry} />;
 }
