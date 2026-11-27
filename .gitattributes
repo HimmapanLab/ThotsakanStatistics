@@ -1,2 +1,5 @@
 # Shell scripts run inside Linux containers; CRLF breaks them.
 *.sh text eol=lf
+
+# NIST reference files must stay byte-identical (CRLF as published).
+backend/tests/nist/data/*.dat -text

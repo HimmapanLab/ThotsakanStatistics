@@ -1,0 +1,210 @@
+{
+ "endpoint": "/api/descriptive/compute",
+ "dataset": "Howell.csv",
+ "request": {
+  "column": "weight"
+ },
+ "response": {
+  "rows": [
+   {
+    "category": "Extremes",
+    "measure": "Minimum",
+    "value": 4.252425,
+    "consistencyCorr": null,
+    "robust": false,
+    "statId": "minimum",
+    "warning": null
+   },
+   {
+    "category": "Extremes",
+    "measure": "Maximum",
+    "value": 62.992589,
+    "consistencyCorr": null,
+    "robust": false,
+    "statId": "maximum",
+    "warning": null
+   },
+   {
+    "category": "Quantiles",
+    "measure": "Q0.25",
+    "value": 22.007716849999998,
+    "consistencyCorr": null,
+    "robust": false,
+    "statId": "quantiles",
+    "warning": null
+   },
+   {
+    "category": "Quantiles",
+    "measure": "Q0.5",
+    "value": 40.057843500000004,
+    "consistencyCorr": null,
+    "robust": false,
+    "statId": "quantiles",
+    "warning": null
+   },
+   {
+    "category": "Quantiles",
+    "measure": "Q0.75",
+    "value": 47.209004875,
+    "consistencyCorr": null,
+    "robust": false,
+    "statId": "quantiles",
+    "warning": null
+   },
+   {
+    "category": "Central Tendency",
+    "measure": "Mean",
+    "value": 35.610617592463235,
+    "consistencyCorr": null,
+    "robust": false,
+    "statId": "mean",
+    "warning": null
+   },
+   {
+    "category": "Central Tendency",
+    "measure": "Median",
+    "value": 40.057843500000004,
+    "consistencyCorr": null,
+    "robust": true,
+    "statId": "median",
+    "warning": null
+   },
+   {
+    "category": "Central Tendency",
+    "measure": "Interquartile Mean",
+    "value": 38.584237692279416,
+    "consistencyCorr": null,
+    "robust": true,
+    "statId": "iqm",
+    "warning": null
+   },
+   {
+    "category": "Central Tendency",
+    "measure": "Geometric Mean",
+    "value": 31.259703751025512,
+    "consistencyCorr": null,
+    "robust": false,
+    "statId": "geometric_mean",
+    "warning": null
+   },
+   {
+    "category": "Central Tendency",
+    "measure": "Harmonic Mean",
+    "value": 25.48991787773262,
+    "consistencyCorr": null,
+    "robust": false,
+    "statId": "harmonic_mean",
+    "warning": null
+   },
+   {
+    "category": "Dispersion",
+    "measure": "Variance (ddof=0)",
+    "value": 216.2559448648013,
+    "consistencyCorr": 216.6542062733921,
+    "robust": false,
+    "statId": "variance_0",
+    "warning": null
+   },
+   {
+    "category": "Dispersion",
+    "measure": "Variance (ddof=1)",
+    "value": 216.6542062733921,
+    "consistencyCorr": 216.6542062733921,
+    "robust": false,
+    "statId": "variance_1",
+    "warning": null
+   },
+   {
+    "category": "Dispersion",
+    "measure": "Std (ddof=0)",
+    "value": 14.705643299930857,
+    "consistencyCorr": 14.725956521248168,
+    "robust": false,
+    "statId": "std_dev_0",
+    "warning": null
+   },
+   {
+    "category": "Dispersion",
+    "measure": "Std (ddof=1)",
+    "value": 14.719178179279988,
+    "consistencyCorr": 14.72595652124817,
+    "robust": false,
+    "statId": "std_dev_1",
+    "warning": null
+   },
+   {
+    "category": "Dispersion",
+    "measure": "Range",
+    "value": 58.740164,
+    "consistencyCorr": 9.591012066645463,
+    "robust": false,
+    "statId": "range",
+    "warning": null
+   },
+   {
+    "category": "Dispersion",
+    "measure": "AAD",
+    "value": 12.506902830973589,
+    "consistencyCorr": 15.67507813209045,
+    "robust": false,
+    "statId": "aad",
+    "warning": null
+   },
+   {
+    "category": "Dispersion",
+    "measure": "IQR",
+    "value": 25.201288025,
+    "consistencyCorr": 18.68174276753183,
+    "robust": true,
+    "statId": "iqr",
+    "warning": null
+   },
+   {
+    "category": "Dispersion",
+    "measure": "MAD",
+    "value": 8.703296499999993,
+    "consistencyCorr": 12.90352669921203,
+    "robust": true,
+    "statId": "mad",
+    "warning": null
+   },
+   {
+    "category": "Shape",
+    "measure": "Skewness (k-statistic)",
+    "value": -0.5433615225667623,
+    "consistencyCorr": null,
+    "robust": false,
+    "statId": "skewness",
+    "warning": null
+   },
+   {
+    "category": "Shape",
+    "measure": "Kurtosis (k-statistic)",
+    "value": 2.0659967319380304,
+    "consistencyCorr": null,
+    "robust": false,
+    "statId": "kurtosis",
+    "warning": null
+   }
+  ],
+  "summary": {
+   "n": 544,
+   "mean": 35.610617592463235,
+   "median": 40.057843500000004,
+   "std": 14.719178179279988,
+   "iqr": 25.201288025
+  },
+  "histogram": {
+   "binEdges": [4.252425, 10.126441400000001, 16.0004578, 21.874474199999998, 27.7484906, 33.622507000000006, 39.4965234, 45.3705398, 51.244556200000005, 57.11857260000001, 62.992589],
+   "counts": [33, 57, 44, 28, 27, 76, 112, 107, 52, 8]
+  },
+  "boxData": {
+   "whiskerLo": -15.794215187500004,
+   "q1": 22.007716849999998,
+   "median": 40.057843500000004,
+   "q3": 47.209004875,
+   "whiskerHi": 85.0109369125,
+   "outliers": []
+  }
+ }
+}
