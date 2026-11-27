@@ -106,7 +106,34 @@ const TOUR_PAGE: Route = 'statistics-graphical'
 
 // ─── App ────────────────────────────────────────────────────────────────────
 
+/**
+ * After a refresh the data from last time is brought back first. Until then the page shows the shell (header,
+ * front page, Preferences) and a line of its own, not a blank app. The pages' inputs are restored when they mount
+ * (lib/pageState), so they mount only once the data is there: <Workspace> below.
+ */
 export default function App() {
+  const { restoring } = useData()
+  return restoring ? <RestoringShell /> : <Workspace />
+}
+
+function RestoringShell() {
+  const [route, setRoute] = useHashRoute()
+  const [prefsOpen, setPrefsOpen] = usePreferencesOpen()
+  const noTour = useCallback(() => {}, [])
+  return (
+    <div className="app-root">
+      <div className="app-main" inert={prefsOpen}>
+        <Header route={route} onTour={noTour} />
+        <div className="app-stage">
+          {route === 'home' ? <HomeTab onNavigate={setRoute} /> : <LoadingDataState />}
+        </div>
+      </div>
+      <Settings open={prefsOpen} onClose={() => setPrefsOpen(false)} onReplayTour={noTour} />
+    </div>
+  )
+}
+
+function Workspace() {
   // ── Navigation ──────────────────────────────────────────────────────────────
   const [route, setRoute] = useHashRoute()
   const [prefsOpen, setPrefsOpen] = usePreferencesOpen()
@@ -202,8 +229,10 @@ export default function App() {
 
   const { result: probResult, isLoading: probLoading, error: probError, retry: probRetry, appliedParams: probAppliedParams } = useDistribution(probDistParams)
   const { state: dataState } = useData()
-  // Data that could not be brought back after a refresh: open the drawer, where its one line says why.
-  useOpenDrawerOnNotice(dataState.notice, isBenchRoute(route), () => setDrawerOpen(true))
+  // Data that could not be brought back after a refresh: open the drawer, where its one line says why. Probability
+  // has no drawer (it closes there at once), so the notice waits for a page that has one and, meanwhile, shows
+  // on the Probability page itself (below).
+  useOpenDrawerOnNotice(dataState.notice, isBenchRoute(route) && route !== 'probability', () => setDrawerOpen(true))
 
   function handleDistChange(name: string) {
     const dist = DISTRIBUTIONS.find((d) => d.name === name)!
@@ -285,6 +314,14 @@ export default function App() {
   if (isBenchRoute(route) && route !== 'probability') {
     if (!dataState.dataset) observation = dataState.status === 'loading' ? <LoadingDataState /> : <NoDataState />
     else if (dataState.numericCols.length === 0) observation = <NoNumericState />
+  }
+
+  // The notice is read where there is no drawer to show it.
+  if (route === 'probability' && dataState.notice) {
+    observation = <>
+      <p role="status" className="status-warning">{dataState.notice}</p>
+      {observation}
+    </>
   }
 
   let content: React.ReactNode
