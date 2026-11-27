@@ -132,9 +132,11 @@ Tab state hooks are created in `App.tsx`, so each tab keeps its state when you s
 | Status | Meaning |
 |---|---|
 | `400` | Missing `x-session-id`, unknown column, invalid parameters, non-CSV upload |
+| `413` | Upload larger than `MAX_UPLOAD_MB` |
+| `422` | A request field outside its range (for example α not in (0, 1), more than 50 coverages) |
 | `401` | Not signed in, bad/expired cookie, wrong domain. The UI returns to the login screen |
 | `404` | Dataset session expired or not found |
-| `500` | Unexpected error |
+| `500` | Unexpected error; the response never carries the exception text |
 
 ## 7. Sign-in, sessions and filters
 

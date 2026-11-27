@@ -37,6 +37,26 @@ def get_estimators(data: pd.Series):
         "deviation_estimators": deviation_choices,
     }
 
+# One bootstrap resamples n values B times, in a Python loop, on the single server worker: B × n
+# sets the time (about 1 s per 50 million values drawn, measured on a laptop with the Electricity
+# data), and every other request waits meanwhile. These caps keep one request to a few seconds;
+# the UI's slider (100–5000) stays within them on every example dataset. Irving sets the numbers.
+MAX_BOOTSTRAP_SAMPLES = 10_000
+MAX_BOOTSTRAP_DRAWS = 100_000_000  # B × n, per resampled statistic
+
+
+def check_bootstrap_work(B: int, n: int) -> None:
+    if B < 1:
+        raise ValueError("Use at least 1 bootstrap sample (B).")
+    if B > MAX_BOOTSTRAP_SAMPLES:
+        raise ValueError(f"Use at most {MAX_BOOTSTRAP_SAMPLES:,} bootstrap samples (B).")
+    if B * n > MAX_BOOTSTRAP_DRAWS:
+        raise ValueError(
+            f"{B:,} bootstrap samples of {n:,} values is too much work for one request. "
+            f"Use B ≤ {MAX_BOOTSTRAP_DRAWS // n:,}, or filter the data."
+        )
+
+
 def prepare_sample(df: pd.DataFrame, params: InferenceParams):
     """The analysed values and, when a weights column is chosen, their weights.
 
@@ -68,6 +88,8 @@ def calculate_intervals(data: pd.Series, params: InferenceParams, weights: pd.Se
             pass
 
     B = params.bootstrap_samples
+    if params.bootstrap_mean or params.bootstrap_median or params.bootstrap_deviation or params.bootstrap_pi:
+        check_bootstrap_work(B, n)
     # "Deviation (1 ddof)" -> "s (ddof=1)"; the rest carry their own name
     sigma_name = (
         "s (ddof=1)" if params.sigma_estimator == "Deviation (1 ddof)"
