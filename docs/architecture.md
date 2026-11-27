@@ -145,7 +145,7 @@ Tab state hooks are created in `App.tsx`, so each tab keeps its state when you s
 **Dataset sessions** are a separate thing from the login cookie:
 
 1. The Data tab parses the CSV in the browser (papaparse) for the preview, column types and filter UI. It also POSTs the file to `/api/data/upload`. Example datasets (`frontend/public/datasets/`) go the same way.
-2. The backend reads the file with pandas and stores the DataFrame in memory under a UUID. It returns column metadata.
+2. The backend reads the file with pandas and stores the DataFrame in memory under a UUID, owned by the signed-in uploader. It returns column metadata. A request from anyone else for that ID gets the same 404 as an expired session.
 3. `DataContext` keeps the ID and sends it as the `x-session-id` header on every analysis call. Some request bodies also have a `session_id` field, but the backend reads the header.
 4. A session expires 30 minutes after it was last used, and expired sessions are cleaned up every 5 minutes. A restart clears all sessions, and extra uvicorn workers wouldn't share them. In the dev compose stack, `UPLOAD_DUMP_DIR` also writes a copy of each upload to `dev-playground/uploads/`.
 

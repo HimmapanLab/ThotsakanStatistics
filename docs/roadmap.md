@@ -44,7 +44,7 @@ The first three are in the order Irving set (2026-10-27); the rest are not yet o
    result meanwhile); emoji in the tab names and in two placeholders (rule 16 covers states; decide whether it
    covers navigation); code-split the 1.6 MB Plotly chunk to speed up the first load.
 8. **Later:** custom distribution builder; approximations (binomial → normal, CLT); Thai / English text;
-   export improvements; tie dataset sessions to the signed-in user; the guided-teaching layer described in
+   export improvements; the guided-teaching layer described in
    [`design.md`](design.md).
 
 ### Linear regression
@@ -74,7 +74,6 @@ When you fix one, delete it here and add a dated note under `changelogs/`.
 | # | Issue | Evidence | Fix direction |
 |---|---|---|---|
 | 2 | Dataset session expiry isn't shown in the UI | 30-min TTL in `sessions/store.py`; the Data tab keeps showing the local table, then every analysis fails with 404 | Detect 404 and prompt for re-upload |
-| 4 | Dataset sessions aren't tied to the user | `get_session_data` checks only the header | Store the owner with the session |
 | 7 | Leftover MathLive declaration | `frontend/src/custom-elements.d.ts`; package not installed | Delete it |
 | 9 | `core/data_stats.py` imports `gradio` | Not installed; module unused | Leave it (legacy copy) or remove it |
 | 13 | No license file | Older docs disagreed (MIT vs "contact maintainers") | Maintainer decision |
