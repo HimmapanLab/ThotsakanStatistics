@@ -128,6 +128,7 @@ Linear regression is the only feature left to migrate. Discuss the design first;
   - Assert against **independent reference values** (scipy directly, a textbook example, a closed form), never against the function's own output.
   - Cover edge cases.
   - Seed any randomness, and don't depend on the network or the clock.
+  - Numerical accuracy: `tests/nist/` checks Descriptive and ANOVA against the NIST reference datasets (`REPORT.md` lists every value); `tests/golden/` replays recorded API responses at relative 1e-12. Update golden snapshots only with `tests/golden/make_golden.py --update`, in a pull request Irving reviews (see `tests/golden/README.md`).
 - **Frontend (Vitest + jsdom):**
   - Mock the `src/api/` layer, not `fetch`.
   - Test loading / error / success states and the debounce/abort behaviour.

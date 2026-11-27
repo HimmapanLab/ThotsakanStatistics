@@ -1,0 +1,11 @@
+{
+ "endpoint": "/api/inference/estimators",
+ "dataset": "WHR_2023_all_years_processed.csv",
+ "request": {
+  "column": "Healthy life expectancy at birth"
+ },
+ "response": {
+  "mean_estimators": ["Sample Mean", "Geometric Mean", "Harmonic Mean", "Interquartile Mean", "Trimmed Mean", "Winsorized Mean", "Weighted Mean"],
+  "deviation_estimators": ["Deviation (1 ddof)", "IQR (bias corrected)", "MAD (bias corrected)", "AAD (bias corrected)"]
+ }
+}

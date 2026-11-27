@@ -1,0 +1,42 @@
+{
+ "endpoint": "/api/inference/pi",
+ "dataset": "Howell.csv",
+ "request": {
+  "column": "height"
+ },
+ "response": {
+  "table": [
+   {
+    "Interval Type": "Prediction",
+    "Statistic": "Mean",
+    "Lower": 83.993125884,
+    "Upper": 192.5340667631,
+    "Method": "t (df=543)"
+   },
+   {
+    "Interval Type": "Prediction",
+    "Statistic": "Median",
+    "Lower": 94.4121466327,
+    "Upper": 202.7678533673,
+    "Method": "Normal (asymptotic, s (ddof=1))"
+   },
+   {
+    "Interval Type": "Prediction",
+    "Statistic": "IQR",
+    "Lower": 94.2345732351,
+    "Upper": 188.3404267649,
+    "Method": "IQR (normal-scaled)"
+   }
+  ],
+  "n": 544,
+  "point_estimates": {
+   "mean": 138.2635963235294,
+   "median": 148.59,
+   "deviation": 27.602447640564694
+  },
+  "histogram": {
+   "binEdges": [53.975, 61.7934375, 69.611875, 77.4303125, 85.24875, 93.0671875, 100.885625, 108.70406249999999, 116.52250000000001, 124.3409375, 132.159375, 139.9778125, 147.79625, 155.6146875, 163.433125, 171.2515625, 179.07],
+   "counts": [6, 11, 11, 14, 19, 14, 15, 23, 19, 22, 19, 80, 136, 111, 40, 4]
+  }
+ }
+}
