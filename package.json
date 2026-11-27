@@ -3,7 +3,7 @@
   "version": "1.1.0",
   "description": "ThotsakanStatistics complete frontend & backend service",
   "scripts": {
-    "dev": "concurrently \"npm run dev --prefix frontend\" \"cd backend && python -m uvicorn main:app --reload\""
+    "dev": "concurrently -n app,api -c cyan,yellow \"npm run dev --prefix frontend -- --open\" \"cd backend && python -m uvicorn main:app --reload\""
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
