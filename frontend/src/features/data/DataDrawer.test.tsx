@@ -102,6 +102,24 @@ describe('Data rail and drawer', () => {
     expect(container.querySelector('[role="status"]')!.textContent).toMatch(/^Data loaded: .*8 rows\.$/)
   })
 
+  it('warns beside the data when a file has one column that holds semicolons', async () => {
+    let done: Promise<boolean> = Promise.resolve(false)
+    await act(async () => { done = api.loadFile(new File(['a;b\n1;2\n'], 'semi.csv', { type: 'text/csv' })) })
+    await act(async () => { await done })
+    await act(async () => rail().click())
+    const notes = Array.from(container.querySelectorAll('.data-note')).map((el) => el.textContent)
+    expect(notes).toContain('This file has one column. Its values look separated by semicolons or tabs, but only commas are read. In Excel, save it as "CSV UTF-8" (comma delimited).')
+  })
+
+  it('shows plain advice, not library text, for a file with no columns', async () => {
+    let done: Promise<boolean> = Promise.resolve(true)
+    await act(async () => { done = api.loadFile(new File([''], 'empty.csv', { type: 'text/csv' })) })
+    await act(async () => { await done })
+    expect(await done).toBe(false)
+    await act(async () => rail().click())
+    expect(container.querySelector('.data-note-error')!.textContent).toBe('This file has no columns. Check it is a CSV with a header row.')
+  })
+
   it('guesses a timestamp column as ID and keeps numericCols and categoricalCols per the contract', async () => {
     await loadCsv()
     expect(api.state.columnTypes).toEqual({ ts: 'ID', group: 'Nominal', score: 'Continuous', count: 'Discrete' })
