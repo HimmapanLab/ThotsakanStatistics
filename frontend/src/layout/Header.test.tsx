@@ -8,6 +8,7 @@ vi.mock('../context/AuthContext', () => ({
   useAuth: () => ({ user: null, signOut: vi.fn(), config: auth.config }),
 }))
 import Header, { MENU_CLOSE_DELAY, MENU_OPEN_DELAY } from './Header'
+import { setTextSize } from '../components/Settings'
 
 let root: Root
 let container: HTMLDivElement
@@ -240,5 +241,41 @@ describe('Statistics menu', () => {
     click(trigger())
     act(() => { document.body.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true })) })
     expect(menu()).toBeNull()
+  })
+})
+
+describe('top bar and the text size', () => {
+  const bar = () => container.querySelector('.tb')!
+  const levels = () => [...bar().classList].filter((name) => name.startsWith('tb-c-'))
+
+  afterEach(() => {
+    setTextSize('standard')
+    delete (HTMLElement.prototype as { scrollWidth?: number }).scrollWidth
+    delete (HTMLElement.prototype as { clientWidth?: number }).clientWidth
+    vi.restoreAllMocks()
+  })
+
+  // jsdom has no layout: say that the bar is too wide at the largest text until its last level is on.
+  function narrowPhone() {
+    const tooWide = (el: Element) => el.classList.contains('tb') && document.documentElement.getAttribute('data-text') === 'projector' && !el.classList.contains('tb-c-name')
+    Object.defineProperty(HTMLElement.prototype, 'scrollWidth', { configurable: true, get() { return tooWide(this) ? 500 : 0 } })
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, get() { return this.classList?.contains('tb') ? 100 : 0 } })
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => { callback(0); return 0 })
+  }
+
+  it('fits itself again as soon as the text size changes, and gives the levels back when it shrinks', () => {
+    narrowPhone()
+    render('hypothesis')
+    expect(levels()).toEqual([])
+    act(() => setTextSize('projector'))
+    expect(levels()).toContain('tb-c-topics')
+    expect(levels()).toContain('tb-c-name')
+    act(() => setTextSize('standard'))
+    expect(levels()).toEqual([])
+  })
+
+  it('lets the Topics button fold to its arrow without losing its name', () => {
+    render('hypothesis')
+    expect(container.querySelector('.tb-topics-btn .tb-topics-name')!.textContent).toBe('Hypothesis Testing')
   })
 })

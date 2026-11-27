@@ -43,9 +43,14 @@ export function forgetTourSeen(): void {
 
 // ── The tour ─────────────────────────────────────────────────────────────────
 
-function firstVisible(selector: string): HTMLElement | null {
-  const found = [...document.querySelectorAll<HTMLElement>(selector)]
-  return found.find((el) => el.getClientRects().length > 0) ?? found[0] ?? null
+/** Whether an element is on screen: rendered (not display: none, nor inside something that is) and not hidden. */
+function isShown(el: HTMLElement): boolean {
+  return el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden'
+}
+
+/** The first match that is on screen. A hidden match is never returned: its box is at 0, 0 and would pull the spotlight there. */
+export function firstVisible(selector: string): HTMLElement | null {
+  return [...document.querySelectorAll<HTMLElement>(selector)].find(isShown) ?? null
 }
 
 interface TourProps {
@@ -63,9 +68,10 @@ export default function Tour({ open, onClose }: TourProps) {
   const last = TOUR_STEPS.length - 1
   const step = TOUR_STEPS[Math.min(index, last)]
 
-  // Each time the tour opens it starts at step 1.
+  // Each time the tour opens it starts at step 1. The reset happens when it closes: doing it on opening would
+  // run after (and undo) the skip of a first step whose part is not on screen.
   useEffect(() => {
-    if (open) setIndex(0)
+    if (!open) setIndex(0)
   }, [open])
 
   const place = useCallback(() => {

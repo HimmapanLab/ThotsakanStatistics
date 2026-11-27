@@ -2,7 +2,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { hypothesisApi, ONE_SAMPLE_T, ONE_WAY_ANOVA, TWO_SAMPLE_T, type HypothesisResponse } from '../../api/hypothesis';
-import { useHypothesisTabState, type HypothesisTabState } from './useHypothesisTabState';
+import { initialDraft, NO_GROUP_COLUMNS, useHypothesisTabState, validateDraft, type HypothesisTabState } from './useHypothesisTabState';
 import HypothesisControls from './HypothesisControls';
 import { ObservationSlot } from './HypothesisTab';
 import { DrawerProvider } from '../../context/DrawerContext';
@@ -203,7 +203,7 @@ describe('Hypothesis student workflow', () => {
   it('explains the grouping prerequisite and sends nothing without a categorical column', async () => {
     await act(async () => state.setDraft({ testType: TWO_SAMPLE_T }));
     await advance();
-    expect(container.textContent).toContain('Mark a grouping column as categorical in Data → Column Types.');
+    expect(container.textContent).toContain(NO_GROUP_COLUMNS);
     expect(container.textContent).not.toContain('Open Column Types');
     expect(hypothesisApi.runTest).toHaveBeenCalledTimes(1);
   });
@@ -351,5 +351,60 @@ describe('Hypothesis panels', () => {
     expect(panel('controls').textContent).not.toContain('Results update automatically');
     expect(panel('controls').textContent).not.toContain('Compare one population mean');
     expect(panel('observation').textContent).not.toContain('Reject');
+  });
+
+  it('says what is missing, not "Updating…" for ever, while the settings are unfinished', async () => {
+    await act(async () => root.render(<Slots />));
+    await pick();
+    await act(async () => state.setDraft({ mu0Str: '-' }));
+    await advance();
+    expect(panel('observation').textContent).not.toContain('Updating…');
+    expect(panel('observation').textContent).toContain(`This is the earlier ${ONE_SAMPLE_T}. To update it: Enter a number for μ₀.`);
+    expect(panel('observation').querySelector('.hp-out')?.className).toContain('is-updating');
+    // Finishing the entry brings the normal update back.
+    await setNull('31');
+    expect(panel('observation').textContent).not.toContain('To update it');
+  });
+
+  it('labels the result left on screen after a failed update with the test it belongs to', async () => {
+    await act(async () => root.render(<Slots />));
+    await pick();
+    vi.mocked(hypothesisApi.runTest).mockRejectedValueOnce(new Error('Server said no.'));
+    await setNull('31');
+    await advance();
+    expect(panel('observation').textContent).toContain('Server said no.');
+    expect(panel('observation').textContent).toContain(`Previous result — update failed. The ${ONE_SAMPLE_T} below uses the earlier settings, not the new ones.`);
+  });
+
+  it('names the group the filters left empty when the backend refuses the test', async () => {
+    data = { ...data, state: { ...data.state, categoricalCols: ['Smoke'], profiles: { Smoke: { nUnique: 2 } } } as typeof data.state,
+      filteredRows: [{ Breath: '28', Smoke: '1' }, { Breath: '53', Smoke: '1' }] };
+    await render();
+    vi.mocked(hypothesisApi.runTest).mockRejectedValueOnce(new Error('One or more groups are empty after filtering.'));
+    await act(async () => state.setDraft({ testType: TWO_SAMPLE_T }));
+    await advance();
+    expect(state.draft.group1.values).toEqual(['0']);
+    expect(state.error).toContain('One or more groups are empty after filtering.');
+    expect(state.error).toContain('Group 1 has no rows with a value for this variable');
+    expect(state.error).not.toContain('Group 2');
+  });
+});
+
+describe('Hypothesis messages about groups', () => {
+  const twoSample = { ...initialDraft('Breath'), testType: TWO_SAMPLE_T };
+  const set = { column: 'Smoke', values: ['0'], name: 'Group 1' };
+
+  it('names the group that is not finished', () => {
+    expect(validateDraft({ ...twoSample, group1: set }, ['Breath'], ['Smoke']).errors.groups)
+      .toBe('Choose a column and at least one category for Group 2.');
+    expect(validateDraft(twoSample, ['Breath'], ['Smoke']).errors.groups)
+      .toBe('Choose a column and at least one category for Group 1 and Group 2.');
+  });
+
+  it('points to the type tag on a column header when no column can make groups', () => {
+    const message = validateDraft(twoSample, ['Breath'], []).errors.groups;
+    expect(message).toBe(NO_GROUP_COLUMNS);
+    expect(message).toContain('type tag');
+    expect(message).not.toContain('Column Types');
   });
 });

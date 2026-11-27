@@ -11,7 +11,7 @@ export const MENU_OPEN_DELAY = 120
 /** How long the menu stays open after the pointer leaves, so a wobbly move does not close it. */
 export const MENU_CLOSE_DELAY = 300
 
-const LEVELS = ['tb-c-icons', 'tb-c-badge', 'tb-c-brand', 'tb-c-topics', 'tb-c-gutter']
+const LEVELS = ['tb-c-icons', 'tb-c-badge', 'tb-c-brand', 'tb-c-topics', 'tb-c-gutter', 'tb-c-name']
 
 function setLevel(bar: HTMLElement, n: number) {
   LEVELS.forEach((name, i) => bar.classList.toggle(name, i < n))
@@ -188,7 +188,7 @@ function Header({ route, onTour }: { route: Route; onTour: () => void }) {
             aria-expanded={topicsOpen}
             onClick={() => setTopicsOpen((open) => !open)}
           >
-            {current?.name ?? 'Topics'}
+            <span className="tb-topics-name">{current?.name ?? 'Topics'}</span>
             <ChevDownIcon />
           </button>
         </>

@@ -76,3 +76,58 @@ export function estimatorTags(row: { statId?: string; consistencyCorr: number | 
   if (!tags) return []
   return corrected && row.consistencyCorr != null ? tags.corrected : tags.shown
 }
+
+/** A ticked statistic the backend sent no row for, with the reason shown in its place. */
+export interface MissingStat { statId: string; measure: string; category: StatCategory; reason: string }
+type StatCategory = 'Central Tendency' | 'Dispersion' | 'Shape'
+
+const ADVANCED_CATEGORY: Readonly<Record<string, StatCategory>> = {
+  'Central tendency': 'Central Tendency', Dispersion: 'Dispersion', Shape: 'Shape',
+}
+
+/**
+ * The ticked advanced statistics that have no row in the result, each with a short reason. Nothing is computed
+ * here: the reason is read from the request that was sent and from the minimum the backend returned. The backend
+ * leaves a statistic out when it cannot be computed (geometric and harmonic means need every value above 0).
+ */
+export function missingStats(
+  selectedStats: readonly string[],
+  rows: readonly { statId?: string; value: number | null }[],
+  request: { weightsCol: string | null; trimAlpha: number | null; winsorLimits: readonly number[] | null },
+): MissingStat[] {
+  const minimum = rows.find((row) => row.statId === 'minimum')?.value
+  const out: MissingStat[] = []
+  for (const group of ADVANCED_GROUPS) {
+    for (const item of group.items) {
+      if (!selectedStats.includes(item.id) || rows.some((row) => row.statId === item.id)) continue
+      const reason =
+        item.id === 'weighted_mean' && !request.weightsCol ? 'Choose a weights column'
+        : item.id === 'trimmed_mean' && request.trimAlpha === null ? 'Enter a trim fraction'
+        : item.id === 'winsorized_mean' && request.winsorLimits === null ? 'Enter the winsor limits'
+        : (item.id === 'geometric_mean' || item.id === 'harmonic_mean') && minimum != null && minimum <= 0 ? 'Needs all values above 0'
+        : 'Not computed for this data'
+      out.push({ statId: item.id, measure: item.label, category: ADVANCED_CATEGORY[group.title], reason })
+    }
+  }
+  return out
+}
+
+type Cell = string | number | boolean | null
+type ExportRow = { category: string; measure: string; value: number | null; consistencyCorr: number | null; robust?: boolean; warning?: string; statId?: string }
+
+/** The CSV rows of the statistics table. The Normal-corrected columns go out only while they are shown on screen. */
+export function statsCsv(rows: readonly ExportRow[], showCorrected: boolean): Cell[][] {
+  return [
+    ['category', 'statistic', 'value', ...(showCorrected ? ['normal_corrected', 'normal_corrected_properties'] : []), 'robust', 'warning'],
+    ...rows.map((row): Cell[] => [row.category, row.measure, row.value,
+      ...(showCorrected ? [row.consistencyCorr, estimatorTags(row, true).join(' ')] : []), !!row.robust, row.warning ?? '']),
+  ]
+}
+
+/** The PDF table of the statistics, with the same rule for the Normal-corrected column. */
+export function statsPdfTable(rows: readonly ExportRow[], showCorrected: boolean): { columns: string[]; rows: Cell[][] } {
+  return {
+    columns: ['Category', 'Statistic', 'Value', ...(showCorrected ? ['Normal-corrected'] : [])],
+    rows: rows.map((row): Cell[] => [row.category, row.measure, row.value, ...(showCorrected ? [row.consistencyCorr] : [])]),
+  }
+}

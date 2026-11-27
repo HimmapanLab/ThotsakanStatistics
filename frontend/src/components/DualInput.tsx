@@ -17,6 +17,9 @@ interface DualInputProps {
   onChange: (value: number) => void
 }
 
+/** A bound as a short number: three significant digits, no trailing zeros. */
+const short = (n: number) => String(Number(n.toPrecision(3)))
+
 export default function DualInput({
   label,
   value,
@@ -43,6 +46,8 @@ export default function DualInput({
   const [text, setText] = useState(textValue ?? value.toFixed(decimals))
   const commitTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastCommitted = useRef(value)
+  // Text that was refused on blur: the field went back to the last valid value, and this says why.
+  const [refused, setRefused] = useState<string | null>(null)
 
   const cancelCommit = useCallback(() => {
     if (commitTimer.current) clearTimeout(commitTimer.current)
@@ -53,6 +58,7 @@ export default function DualInput({
 
   useEffect(() => {
     cancelCommit()
+    setRefused(null)
     setText(textValue ?? value.toFixed(decimals))
     lastCommitted.current = value
   // A reset signal deliberately resynchronizes even when the numeric value is unchanged.
@@ -63,6 +69,7 @@ export default function DualInput({
   useEffect(() => {
     cancelCommit()
     if (Math.abs(value - lastCommitted.current) > 1e-9) {
+      setRefused(null)
       setText(value.toFixed(decimals))
       lastCommitted.current = value
     }
@@ -103,6 +110,7 @@ export default function DualInput({
   function handleSlider(e: React.ChangeEvent<HTMLInputElement>) {
     const v = Number(e.target.value)
     const clamped = clamp(roundToStep(v))
+    setRefused(null)
     setText(clamped.toFixed(decimals))
     onTextChange?.(clamped.toFixed(decimals))
     commitValue(clamped)
@@ -111,6 +119,7 @@ export default function DualInput({
   // Number input → debounced commit
   function handleTextChange(e: React.ChangeEvent<HTMLInputElement>) {
     const raw = e.target.value
+    setRefused(null)
     setText(raw)
     onTextChange?.(raw)
     cancelCommit()
@@ -128,7 +137,10 @@ export default function DualInput({
       const restored = lastCommitted.current.toFixed(decimals)
       setText(restored)
       onTextChange?.(restored)
+      // Never revert without saying so (docs/interaction_contract.md): an empty field is not worth a message.
+      if (text.trim() !== '') setRefused(`“${text.trim()}” is not a number from ${short(min)} to ${short(max)}. Kept ${restored}.`)
     } else {
+      setRefused(null)
       const clamped = clamp(roundToStep(parsed))
       setText(clamped.toFixed(decimals))
       onTextChange?.(clamped.toFixed(decimals))
@@ -143,17 +155,21 @@ export default function DualInput({
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
       const v = clamp(roundToStep(value + step))
+      setRefused(null)
       setText(v.toFixed(decimals))
       onTextChange?.(v.toFixed(decimals))
       commitValue(v)
     } else if (e.key === 'ArrowDown') {
       e.preventDefault()
       const v = clamp(roundToStep(value - step))
+      setRefused(null)
       setText(v.toFixed(decimals))
       onTextChange?.(v.toFixed(decimals))
       commitValue(v)
     }
   }
+
+  const shownError = error || refused
 
   // Filled-track percentage for visual feedback
   const pct = ((value - min) / (max - min)) * 100
@@ -177,8 +193,8 @@ export default function DualInput({
         step={step}
         value={value}
         disabled={disabled}
-        aria-invalid={!!error}
-        aria-describedby={[hint ? `${id}-hint` : '', error ? `${id}-error` : ''].filter(Boolean).join(' ') || undefined}
+        aria-invalid={!!shownError}
+        aria-describedby={[hint ? `${id}-hint` : '', shownError ? `${id}-error` : ''].filter(Boolean).join(' ') || undefined}
         onChange={handleSlider}
         style={{
           background: `linear-gradient(to right, var(--color-accent) ${pct}%, var(--color-border-md) ${pct}%)`,
@@ -211,8 +227,8 @@ export default function DualInput({
         inputMode="decimal"
         value={text}
         disabled={disabled}
-        aria-invalid={!!error}
-        aria-describedby={[hint ? `${id}-hint` : '', error ? `${id}-error` : ''].filter(Boolean).join(' ') || undefined}
+        aria-invalid={!!shownError}
+        aria-describedby={[hint ? `${id}-hint` : '', shownError ? `${id}-error` : ''].filter(Boolean).join(' ') || undefined}
         onChange={handleTextChange}
         onBlur={handleTextCommit}
         onKeyDown={handleKeyDown}
@@ -223,7 +239,7 @@ export default function DualInput({
           focus:outline-none focus:border-[var(--color-accent)]"
       />
       {hint && <p id={`${id}-hint`} className="text-xs text-[var(--color-text-muted)]">{hint}</p>}
-      {error && <p id={`${id}-error`} className="text-xs text-[var(--error)]">{error}</p>}
+      {shownError && <p id={`${id}-error`} className="text-xs text-[var(--error)]">{shownError}</p>}
     </div>
   )
 }

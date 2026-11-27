@@ -1,7 +1,9 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { useState } from 'react'
 import DualInput from './DualInput'
+import { useLastValid } from '../hooks/useLastValid'
 
 let root: Root
 let container: HTMLDivElement
@@ -90,5 +92,49 @@ describe('DualInput', () => {
     blurTextInput()
     expect(onChange).toHaveBeenLastCalledWith(0.30000000000000004)
     expect(textInput().value).toBe('0.3')
+  })
+
+  it('says why when it takes the last valid value back, and drops the message as soon as the reader types again', () => {
+    act(() => root.render(<DualInput label="Value" value={1} min={0} max={10} step={0.5} onChange={vi.fn()} />))
+    expect(container.querySelector('[id$="-error"]')).toBeNull()
+    enter('99')
+    blurTextInput()
+    expect(textInput().value).toBe('1.00')
+    expect(container.querySelector('[id$="-error"]')?.textContent).toBe('“99” is not a number from 0 to 10. Kept 1.00.')
+    expect(textInput().getAttribute('aria-invalid')).toBe('true')
+    enter('5')
+    expect(container.querySelector('[id$="-error"]')).toBeNull()
+  })
+
+  it('says nothing when the field is left empty or the entry is accepted', () => {
+    act(() => root.render(<DualInput label="Value" value={1} min={0} max={10} step={0.5} onChange={vi.fn()} />))
+    enter('')
+    blurTextInput()
+    expect(container.querySelector('[id$="-error"]')).toBeNull()
+    enter('3')
+    blurTextInput()
+    expect(container.querySelector('[id$="-error"]')).toBeNull()
+  })
+
+  // The Inference alpha field: the text lives in the page, and the slider follows the last valid text.
+  function AlphaField() {
+    const [alphaStr, setAlphaStr] = useState('0.05')
+    const alpha = Number(alphaStr)
+    const valid = alphaStr.trim() !== '' && Number.isFinite(alpha) && alpha > 0 && alpha < 1
+    const slider = useLastValid(valid ? alpha : null, 0.05)
+    return <DualInput label="Alpha" value={slider} min={0.001} max={0.5} step={0.001} decimals={3}
+      onChange={(value) => setAlphaStr(value.toFixed(3))} textValue={alphaStr} onTextChange={setAlphaStr} />
+  }
+
+  it('returns an unparsable alpha to the last valid value, not to 0.05, and says so', () => {
+    act(() => root.render(<AlphaField />))
+    enter('0.2')
+    blurTextInput()
+    expect(textInput().value).toBe('0.200')
+    enter('0,3')
+    blurTextInput()
+    expect(textInput().value).toBe('0.200')
+    expect((container.querySelector('input[type="range"]') as HTMLInputElement).value).toBe('0.2')
+    expect(container.querySelector('[id$="-error"]')?.textContent).toContain('Kept 0.200')
   })
 })
