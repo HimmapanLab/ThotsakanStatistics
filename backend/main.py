@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.deps import require_user
 from api.routes import auth, data, descriptive, inference, graphical, hypothesis, probability
 from config import get_settings, validate_settings
+from logging_setup import log_requests, setup_logging
 from sessions.store import clean_expired_sessions
 
 
@@ -27,7 +28,11 @@ async def lifespan(app: FastAPI):
         pass
 
 
+setup_logging()
 app = FastAPI(title="ThotsakanStatistics API", lifespan=lifespan)
+
+# One log line per request, and a plain 500 with a request id for any unexpected error.
+app.middleware("http")(log_requests)
 
 # Configure CORS for Vite dev server
 app.add_middleware(
